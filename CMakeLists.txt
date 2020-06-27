@@ -29,8 +29,6 @@ include_directories(
 )
 add_definitions(${LLVM_DEFINITIONS})
 
-include_directories("${CMAKE_SOURCE_DIR}/src/c-compiler/")
-
 link_directories(/usr/lib/llvm-7/lib)
 
 # See either:
