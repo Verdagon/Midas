@@ -29,7 +29,7 @@ uint64_t timerTick() {
 #include <time.h>
 uint64_t timerGet() {
     struct timespec tp;
-    clock_gettime(CLOCK_REALTIME, &tp);
+//    clock_gettime(CLOCK_REALTIME, &tp);
     return (uint64_t)tp.tv_nsec;
 }
 uint64_t timerTick() {

@@ -1,127 +1,53 @@
-# Cone Programming Language
-Cone is a fast, fit, friendly, and safe systems programming language.
-It features:
+# Vale in Midas
 
-- Do-it-your-way memory management
-- Versatile type system (incl. variant types and slices)
-- Memory, thread & type safe
-- Extensive code reuse features
-- Lean, native runtime
-- Concise, readable syntax
+## Building and Running Vale in Terminal (OSX)
 
-The Cone compiler is currently under development.
-The current status and next steps are documented in [PLAN.md][plan].
+- get llvm 7 and set LDFLAGS, CPPFLAGS, PATH env vars:
 
-## Documentation and Other Resources
+```
+$ brew install llvm@7
+$ export LDFLAGS="-L/usr/local/opt/llvm@7/lib -Wl,-rpath,/usr/local/opt/llvm@7/lib"
+$ export CPPFLAGS="-I/usr/local/opt/llvm@7/include"
+$ export PATH=/usr/local/opt/llvm@7/bin:$PATH
+```
 
- - [Cone web site](http://cone.jondgoodwin.com)
- - [Web-based playground][playground], offering pre-built examples in a drop-down
- - [Cone Language Reference][coneref] documentation
- - [Programming Linguistics blog](http://pling.jondgoodwin.com)
- 
-The [Cone home repository](https://github.com/jondgoodwin/conehome)
-offers a rudimentary build environment for Cone programs,
-including the Congo build tool and additional example Cone programs.
+- generate the build files, and use it to build valec:
 
-## Language Features
+```
+$ cmake -B cmake-build-debug
+$ cd cmake-build-debug
+$ make
+```
 
-When finished, Cone will support these features:
+- run functional tests:
 
-- Readable, modular marriage of 3D content and behavior:
-  - Simple, outline-like declarative syntax for content
-  - Procedural generation and behavior interwoven in content
-  - Snap-together, Internet-hosted, url-located parts
-- Compile-time memory, type, and concurrency safety checks
-- [Gradual memory management][gmm]: safely manage memory your way
-  - Lexical, single-owner strategy for performance
-  - Ref-counted or tracing GC for flexibility
-  - Lifetime-constrained references for performance/simplicity
-  - Custom allocators (pools/arenas) for performance
-- Lightweight concurrency
-  - Co-routines, threads and actors
-  - Lockless and locked permissions for safe data sharing
-- Robust type system
-  - Sum types, structs, arrays, slices, ranges, aliases
-  - struct subtyping via trait, interface, & parent inheritance
-  - Attach methods to any type
-- Modules, macros, templates and meta-programming
-- Extensible pattern matching
-  - Type-defined '~~' match operator
-  - 'match' blocks using custom match methods
-  - Content extraction during matching
-- Functions, Methods and Closures
-  - Multiple return values and implicit return
-  - Computed properties
-- 'do' block for context management
-- Concise, readable code:
-  - 'this'-implied prefix operators for method cascading, etc.
-  - Operator overloading
-  - Control clauses for 'if', 'while', 'each'
-  - Type inference
-  - Parallel assignment
-  - Auto-detected off-side rule
-  - Blocks and 'if' are expressions
-- Unicode-aware (UTF8) text strings and variable names
-- Fast compilation and convenient packaging
+```
+$ cd ../test
+$ python3 -m unittest -f
+```
 
-## Building (Windows)
+## Building and Running Vale in CLion (OSX)
 
-A Visual Studio C++ solution can be created using the Cone.vcxproj project file.
-The generated object and executable files are created relative to the location of the 
-solutions file. The build depends on [LLVM 7][llvm] being installed and available at $(LLVMDIR).
+- get llvm 7
+```
+$ brew install llvm@7
+```
 
-## Building (Linux)
+- apply default .idea configuration. 
+```
+$ git merge --no-ff origin/idea_config
+$ git reset HEAD~1
+```
+The CMake environment should point to an llvm-7 installation *similar* to the `export` commands in the Terminal variant instructions above. See Preferences -> Build, Execution, Deployment -> CMake for details or if you need to modify the environment. If you must clean the repo, you may prefer `git clean -xfd -e .idea` from the top-level
 
-To build on Linux:
+- open CLion and open Midas through CMakeLists.txt
 
-	sudo apt-get install llvm-7-dev
-	cmake .
-	make
+- Select the `valec|Debug` configuration (upper right toolbar) and build it by clicking the control that looks like a hammer (left of configuration dropdown)
 
-Note: To generate WebAssembly, it is necessary to custom-build LLVM, e.g.:
+- Select the `Unittests in tests` configuration and run it by clicking on the control that looks like a triangle/play button (right of configuration dropdown)
 
-	mkdir llvm
-	cd llvm
-	svn co http://llvm.org/svn/llvm-project/llvm/trunk llvm-src
-	cd llvm-src/tools
-	svn co http://llvm.org/svn/llvm-project/cfe/trunk clang
-	svn co http://llvm.org/svn/llvm-project/lld/trunk lld
-	cd ../..
-	mkdir llvm-build
-	cd llvm-build
-	CC=clang CXX=clang++ cmake -G "Unix Makefiles" -DLLVM_BUILD_LLVM_DYLIB=ON -DCMAKE_INSTALL_PREFIX=/llvm/wasm -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=WebAssembly /llvm/llvm-src
-	make
-	make install
+## Emitting Source To LLVM Assembly
 
-## Building (Mac OS)
-
-To build on Mac OS:
-
-	brew install --with-toolchain llvm
-	llvm-config --bindir
-
-CMake will auto-detect LLVM, so all you should need to do:
-
-	cmake .
-	make
-
-## License
-
-The Cone programming language compiler is distributed under the terms of the MIT license. 
-See LICENSE and COPYRIGHT for details.
-
-[3dweb]: http://cone.jondgoodwin.com/web3d.html
-[gmm]: http://jondgoodwin.com/pling/gmm.pdf
-[plan]: https://github.com/jondgoodwin/cone/blob/master/PLAN.md
-[coneref]: http://cone.jondgoodwin.com/coneref/index.html
-[showcase]: http://cone.jondgoodwin.com/coneref/showcase.html
-[playground]: http://cone.jondgoodwin.com/play/index.html
-[examples]: http://github.com/jondgoodwin/cone/tree/master/text
-[acorn]: https://github.com/jondgoodwin/acornvm
-[acornref]: http://web3d.jondgoodwin.com/acorn
-[llvm]: https://llvm.org/
-
-[hello]: http://cone.jondgoodwin.com/play/index.html?gist=f55a8caa2605a11223437167730c53af
-[pi]: http://cone.jondgoodwin.com/play/index.html?gist=4510655502edcde9d50d185cfd7f3c2e
-[perm]: http://cone.jondgoodwin.com/play/index.html?gist=96ecaecb4827c2b9e6aaad35feb2bfd1
-[struct]: http://cone.jondgoodwin.com/play/index.html?gist=cd702c7c1ffc8f97d7762735d04fd9de
+```
+$ clang -c -emit-llvm foo.cpp -o foo.bc && llvm-dis -o foo.ll foo.bc 
+```

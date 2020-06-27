@@ -74,6 +74,7 @@ Makefile
 _deps
 cmake_install.cmake
 *.cbp
+cmake-build-*
 
 # IntelliJ
 .idea
@@ -82,3 +83,14 @@ cmake_install.cmake
 .vs
 x64
 packages
+
+# vale frontend compiler driver generated files
+*.vir
+
+# python
+__pycache__
+.mypy_cache
+
+# osx
+.DS_Store
+
