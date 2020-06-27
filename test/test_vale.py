@@ -38,7 +38,7 @@ class ValeTest(unittest.TestCase):
         return procrun([f"../{self.GENPATH}/valec"] + args)
 
     def clang(self, args: List[str]) -> subprocess.CompletedProcess:
-        return procrun(["/usr/bin/clang-7"] + args)
+        return procrun(["clang"] + args)
 
     def aout(self) -> subprocess.CompletedProcess:
         return procrun(["./a.out"])

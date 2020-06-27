@@ -29,8 +29,6 @@ include_directories(
 )
 add_definitions(${LLVM_DEFINITIONS})
 
-link_directories(/usr/lib/llvm-7/lib)
-
 # See either:
 #   llvm-config-7 --libfiles --link-static
 #   llvm-config --components | tr " " "\n"
