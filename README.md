@@ -44,7 +44,7 @@ The CMake environment should point to an llvm-7 installation *similar* to the `e
 
 - Select the `valec|Debug` configuration (upper right toolbar) and build it by clicking the control that looks like a hammer (left of configuration dropdown)
 
-- Select the `Unittests in tests` configuration and click run it by clicking on the control that looks like a triangle/play button (right of configuration dropdown)
+- Select the `Unittests in tests` configuration and run it by clicking on the control that looks like a triangle/play button (right of configuration dropdown)
 
 ## Emitting Source To LLVM Assembly
 
