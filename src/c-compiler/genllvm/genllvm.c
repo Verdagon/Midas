@@ -272,11 +272,17 @@ LLVMTargetMachineRef genlCreateMachine(ConeOptions *opt) {
     LLVMRelocMode reloc;
     LLVMTargetMachineRef machine;
 
-    LLVMInitializeAllTargetInfos();
-    LLVMInitializeAllTargetMCs();
-    LLVMInitializeAllTargets();
-    LLVMInitializeAllAsmPrinters();
-    LLVMInitializeAllAsmParsers();
+//    LLVMInitializeAllTargetInfos();
+//    LLVMInitializeAllTargetMCs();
+//    LLVMInitializeAllTargets();
+//    LLVMInitializeAllAsmPrinters();
+//    LLVMInitializeAllAsmParsers();
+
+    LLVMInitializeX86TargetInfo();
+    LLVMInitializeX86TargetMC();
+    LLVMInitializeX86Target();
+    LLVMInitializeX86AsmPrinter();
+    LLVMInitializeX86AsmParser();
 
     // Find target for the specified triple
     if (!opt->triple)

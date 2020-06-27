@@ -51,3 +51,14 @@ The CMake environment should point to an llvm-7 installation *similar* to the `e
 ```
 $ clang -c -emit-llvm foo.cpp -o foo.bc && llvm-dis -o foo.ll foo.bc 
 ```
+
+
+
+
+# BEFORE SUBMIT
+
+add linux section to readme
+
+sudo apt-get install libedit-dev
+
+had to revert some cmakelists stuff, see why
