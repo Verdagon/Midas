@@ -1,53 +1,49 @@
 # Vale in Midas
 
-## Building and Running Vale (OSX)
+## Building and Running Vale in Terminal (OSX)
 
-get llvm 7:
-
-```
-$ brew install --with-toolchain llvm@7
-```
-
-generate the build files and use it to build conec:
+- get llvm 7 and set LDFLAGS, CPPFLAGS, PATH env vars:
 
 ```
-$ cmake .
+$ brew install llvm@7
+$ export LDFLAGS="-L/usr/local/opt/llvm@7/lib -Wl,-rpath,/usr/local/opt/llvm@7/lib"
+$ export CPPFLAGS="-I/usr/local/opt/llvm@7/include"
+$ export PATH=/usr/local/opt/llvm@7/bin:$PATH
+```
+
+- generate the build files, and use it to build valec:
+
+```
+$ cmake -B cmake-build-debug
+$ cd cmake-build-debug
 $ make
 ```
 
-foo.vale contents:
+- run functional tests:
 
 ```
-fn main() {
-   3 + 4
-}
+$ cd ../test
+$ python3 -m unittest -f
 ```
 
-run Driver3.jar and capture the Vale IR json:
+## Building and Running Vale in CLion (OSX)
 
+- get llvm 7
 ```
-$ java -cp Driver3.jar net.verdagon.vale.driver.Driver run foo.vale | sed -nE -e "/^\{/,$ p" > foo.vir
-```
-
-run conec on it to generate an object file:
-
-```
-$ ./conec foo.vir
+$ brew install llvm@7
 ```
 
-run clang on the object file to compile it down to an executable:
+- apply default .idea configuration. The CMake environment should point to an llvm-7 installation *similar* to the `export` commands in the Terminal variant instructions above. See Preferences -> Build, Execution, Deployment -> CMake for details or if you need to modify the environment
+```
+$ git merge --no-ff origin/idea_config
+$ git reset HEAD~1
+```
 
-```
-$ clang foo.o
-```
+- open CLion and open Midas through CMakeLists.txt
 
-run a.out:
+- Select the `valec|Debug` configuration (upper right toolbar) and build it by clicking the control that looks like a hammer (left of configuration dropdown)
 
-```
-$ ./a.out
-$ echo $?
-7
-```
+- Select the `Unittests in tests` configuration and click run it by clicking on the control that looks like a triangle/play button (right of configuration dropdown)
 
 ## Emitting Source To LLVM Assembly
 
