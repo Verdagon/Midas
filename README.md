@@ -33,11 +33,12 @@ $ python3 -m unittest -f
 $ brew install llvm@7
 ```
 
-- apply default .idea configuration. The CMake environment should point to an llvm-7 installation *similar* to the `export` commands in the Terminal variant instructions above. See Preferences -> Build, Execution, Deployment -> CMake for details or if you need to modify the environment
+- apply default .idea configuration. 
 ```
 $ git merge --no-ff origin/idea_config
 $ git reset HEAD~1
 ```
+The CMake environment should point to an llvm-7 installation *similar* to the `export` commands in the Terminal variant instructions above. See Preferences -> Build, Execution, Deployment -> CMake for details or if you need to modify the environment. If you must clean the repo, you may prefer `git clean -xfd -e .idea` from the top-level
 
 - open CLion and open Midas through CMakeLists.txt
 
