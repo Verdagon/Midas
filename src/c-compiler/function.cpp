@@ -1,22 +1,6 @@
-#ifndef TRANSLATE_H_
-#define TRANSLATE_H_
+#include <iostream>
 
-class GlobalState {
-public:
-  std::unordered_map<std::string, LLVMValueRef> functions;
-};
-
-class FunctionState {
-public:
-  LLVMValueRef containingFunc;
-  std::unordered_map<int, LLVMValueRef> localAddrByLocalId;
-  int nextBlockNumber = 1;
-
-  FunctionState(
-      LLVMValueRef containingFunc_,
-      LLVMBuilderRef builder_) :
-      containingFunc(containingFunc_) {}
-};
+#include "function.h"
 
 LLVMTypeRef translateType(Reference* referenceM) {
   if (referenceM->ownership == Ownership::SHARE && dynamic_cast<Int*>(referenceM->referend) != nullptr) {
@@ -311,5 +295,3 @@ void translateFunction(
 
   translateExpression(globalState, &functionState, builder, functionM->block);
 }
-
-#endif

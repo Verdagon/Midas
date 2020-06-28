@@ -10,10 +10,8 @@
 #include <iostream>
 #include <memory>
 #include <fstream>
-// #include <optional>
 #include <unordered_map>
 #include <sstream>
-//#include <concepts>
 
 #include <nlohmann/json.hpp>
 
@@ -21,11 +19,12 @@
 #include "ast.h"
 #include "instructions.h"
 
-#include "translate.h"
+#include "function.h"
 #include "readjson.h"
 #include "vale.h"
 
-using std::move;
+// for convenience
+using json = nlohmann::json;
 
 // Use provided options (triple, etc.) to creation a machine
 LLVMTargetMachineRef genlCreateMachine() {
