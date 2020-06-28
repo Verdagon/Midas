@@ -33,7 +33,7 @@ typedef struct ConeOptions {
 
     void* data; // User-defined data for unit test callbacks
 
-    int ptrsize;    // Size of a pointer (in bits)
+    unsigned int ptrsize;    // Size of a pointer (in bits)
 
     // Boolean flags
     int wasm;        // 1=WebAssembly

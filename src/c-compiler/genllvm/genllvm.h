@@ -48,8 +48,7 @@ typedef struct GenState {
 // Setup LLVM generation, ensuring we know intended target
 void genSetup(GenState *gen, ConeOptions *opt);
 void genClose(GenState *gen);
-void genmod(GenState *gen, ModuleNode *mod);
-void genlFn(GenState *gen, FnDclNode *fnnode);
+void genMod(GenState *gen, ModuleNode *mod);
 void genlGloVarName(GenState *gen, VarDclNode *glovar);
 void genlGloFnName(GenState *gen, FnDclNode *glofn);
 
@@ -72,14 +71,5 @@ void genlRcCounter(GenState *gen, LLVMValueRef ref, long long amount, RefNode *r
 void genlDealiasOwn(GenState *gen, LLVMValueRef ref, RefNode *refnode);
 // Create an alloca (will be pushed to the entry point of the function.
 LLVMValueRef genlAlloca(GenState *gen, LLVMTypeRef type, const char *name);
-
-// genltype.c
-// Generate a type value
-LLVMTypeRef genlType(GenState *gen, INode *typ);
-// Generate LLVM value corresponding to the size of a type
-LLVMValueRef genlSizeof(GenState *gen, INode *vtype);
-// Generate unsigned integer whose bits are same size as a pointer
-LLVMTypeRef genlUsize(GenState *gen);
-
 
 #endif
