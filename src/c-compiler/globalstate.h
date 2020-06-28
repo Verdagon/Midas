@@ -1,5 +1,5 @@
-#ifndef FUNCTION_H_
-#define FUNCTION_H_
+#ifndef GLOBALSTATE_H_
+#define GLOBALSTATE_H_
 
 #include <llvm-c/Core.h>
 
@@ -10,7 +10,7 @@
 
 class GlobalState {
 public:
-  std::unordered_map<std::string, LLVMValueRef> structs;
+  std::unordered_map<std::string, LLVMTypeRef> structs;
   std::unordered_map<std::string, LLVMValueRef> functions;
 };
 

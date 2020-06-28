@@ -62,6 +62,7 @@ add_executable(valec
 		src/c-compiler/function.cpp
 		src/c-compiler/struct.cpp
 		src/c-compiler/readjson.cpp
+		src/c-compiler/translatetype.cpp
 		src/c-compiler/conec.c
 		src/c-compiler/coneopts.c
 

@@ -21,12 +21,12 @@
 //      containingFunc(containingFunc_) {}
 //};
 
-void translateStruct(
+LLVMTypeRef declareStruct(
     GlobalState* globalState,
     LLVMModuleRef mod,
     StructDefinition* structM);
 
-LLVMValueRef declareStruct(
+void translateStruct(
     GlobalState* globalState,
     LLVMModuleRef mod,
     StructDefinition* structM);

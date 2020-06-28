@@ -1,23 +1,8 @@
 #include <iostream>
 
+#include "translatetype.h"
+
 #include "function.h"
-
-LLVMTypeRef translateType(Reference* referenceM) {
-  if (referenceM->ownership == Ownership::SHARE && dynamic_cast<Int*>(referenceM->referend) != nullptr) {
-    return LLVMInt64Type();
-  } else {
-    assert(false);
-    return nullptr;
-  }
-}
-
-std::vector<LLVMTypeRef> translateTypes(std::vector<Reference*> referencesM) {
-  std::vector<LLVMTypeRef> result;
-  for (auto referenceM : referencesM) {
-    result.push_back(translateType(referenceM));
-  }
-  return result;
-}
 
 LLVMValueRef translateExpression(
     GlobalState* globalState,
@@ -173,7 +158,7 @@ LLVMValueRef translateExpression(
     assert(functionState->localAddrByLocalId.count(stackify->local->id->number) == 0);
     auto name = std::string("r") + std::to_string(stackify->local->id->number);
     auto valueToStore = translateExpression(globalState, functionState, builder, stackify->sourceExpr);
-    auto localAddr = LLVMBuildAlloca(builder, translateType(stackify->local->type), name.c_str());
+    auto localAddr = LLVMBuildAlloca(builder, translateType(globalState, stackify->local->type), name.c_str());
     functionState->localAddrByLocalId.emplace(stackify->local->id->number, localAddr);
     LLVMBuildStore(builder, valueToStore, localAddr);
     LLVMValueRef empty[1] = {};
@@ -241,7 +226,7 @@ LLVMValueRef translateExpression(
     LLVMBuildBr(elseBlockBuilder, afterwardBlockL);
 
     LLVMPositionBuilderAtEnd(builder, afterwardBlockL);
-    auto phi = LLVMBuildPhi(builder, translateType(iff->commonSupertype), "");
+    auto phi = LLVMBuildPhi(builder, translateType(globalState, iff->commonSupertype), "");
     LLVMValueRef incomingValueRefs[2] = { thenExpr, elseExpr };
     LLVMBasicBlockRef incomingBlocks[2] = { thenBlockL, elseBlockL };
     LLVMAddIncoming(phi, incomingValueRefs, incomingBlocks, 2);
@@ -260,8 +245,8 @@ LLVMValueRef declareFunction(
     LLVMModuleRef mod,
     Function* functionM) {
 
-  auto paramTypesL = translateTypes(functionM->prototype->params);
-  auto returnTypeL = translateType(functionM->prototype->returnType);
+  auto paramTypesL = translateTypes(globalState, functionM->prototype->params);
+  auto returnTypeL = translateType(globalState, functionM->prototype->returnType);
   auto nameL = functionM->prototype->name->name;
 
   LLVMTypeRef functionTypeL = LLVMFunctionType(returnTypeL, paramTypesL.data(), paramTypesL.size(), 0);
