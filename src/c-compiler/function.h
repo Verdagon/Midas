@@ -1,5 +1,5 @@
-#ifndef TRANSLATE_H_
-#define TRANSLATE_H_
+#ifndef FUNCTION_H_
+#define FUNCTION_H_
 
 #include <llvm-c/Core.h>
 
@@ -7,11 +7,7 @@
 
 #include "ast.h"
 #include "instructions.h"
-
-class GlobalState {
-public:
-  std::unordered_map<std::string, LLVMValueRef> functions;
-};
+#include "globalstate.h"
 
 class FunctionState {
 public:
