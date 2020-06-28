@@ -126,7 +126,8 @@ Expression* readExpression(const json& expression) {
         expression["localName"]);
   } else if (type == "Discard") {
     return new Discard(
-        readExpression(expression["sourceExpr"]));
+        readExpression(expression["sourceExpr"]),
+        readReference(expression["sourceResultType"]));
   } else if (type == "Argument") {
     return new Argument(
         readReference(expression["resultType"]),

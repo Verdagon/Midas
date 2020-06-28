@@ -73,7 +73,7 @@ class ValeTest(unittest.TestCase):
         proc = self.exec(exe_file)
         return proc
 
-    def compile_and_execute_and_expect_return_code(self, vale_file: str, expected_return_code):
+    def compile_and_execute_and_expect_return_code(self, vale_file: str, expected_return_code: int) -> None:
         proc = self.compile_and_execute(vale_file)
         self.assertEqual(proc.returncode, expected_return_code, f"Unexpected result: {proc.returncode}")
 
@@ -84,8 +84,8 @@ class ValeTest(unittest.TestCase):
     def test_if(self) -> None:
         self.compile_and_execute_and_expect_return_code("if.vale", 42)
 
-    # def test_mutlocal(self) -> None:
-    #     self.compile_and_execute_and_expect_return_code("mutlocal.vale", 42)
+    def test_mutlocal(self) -> None:
+        self.compile_and_execute_and_expect_return_code("mutlocal.vale", 42)
 
     # def test_while(self) -> None:
     #     self.compile_and_execute_and_expect_return_code("while.vale", 42)

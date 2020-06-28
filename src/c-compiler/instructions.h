@@ -373,8 +373,10 @@ public:
 class Discard : public Expression {
 public:
   Expression* sourceExpr;
+  Reference* sourceResultType;
 
-  Discard(Expression* sourceExpr_) : sourceExpr(sourceExpr_) {}
+  Discard(Expression* sourceExpr_, Reference* sourceResultType_) :
+      sourceExpr(sourceExpr_), sourceResultType(sourceResultType_) {}
 };
 
 class Local {
