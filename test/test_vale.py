@@ -81,8 +81,8 @@ class ValeTest(unittest.TestCase):
     def test_addret(self) -> None:
         self.compile_and_execute_and_expect_return_code("addret.vale", 7)
 
-    # def test_if(self) -> None:
-    #     self.compile_and_execute_and_expect_return_code("if.vale", 1337)
+    def test_if(self) -> None:
+        self.compile_and_execute_and_expect_return_code("if.vale", 42)
 
 
 if __name__ == '__main__':

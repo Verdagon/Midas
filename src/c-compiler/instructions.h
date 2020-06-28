@@ -61,26 +61,25 @@ public:
 
 class ConstantI64 : public Expression {
 public:
-    int value;
+  int value;
 
-    ConstantI64(
-        int value_)
-        : value(value_) {}
+  ConstantI64(
+      int value_)
+      : value(value_) {}
+};
 
-//    Reference* getResultType() const override {
-//      return new Reference{Ownership::SHARE, new Int()};
-//    }
+class ConstantBool : public Expression {
+public:
+  bool value;
+
+  ConstantBool(
+      bool value_)
+      : value(value_) {}
 };
 
 
 class ConstantVoid : public Expression {
 public:
-};
-
-
-class ConstantBool : public Expression {
-public:
-  bool value;
 };
 
 
@@ -282,9 +281,20 @@ public:
 
 class If : public Expression {
 public:
-  Block* conditionBlock;
-  Block* thenBlock;
-  Block* elseBlock;
+  Expression * conditionExpr;
+  Expression * thenExpr;
+  Expression * elseExpr;
+  Reference * commonSupertype;
+
+  If(
+      Expression * conditionExpr_,
+      Expression * thenExpr_,
+      Expression * elseExpr_,
+      Reference * commonSupertype_) :
+    conditionExpr(conditionExpr_),
+    thenExpr(thenExpr_),
+    elseExpr(elseExpr_),
+    commonSupertype(commonSupertype_) {}
 };
 
 class While : public Expression {
