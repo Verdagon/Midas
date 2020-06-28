@@ -22,7 +22,7 @@ enum
     OPT_BUILDFLAG,
     OPT_STRIP,
     OPT_PATHS,
-    OPT_OUTPUT,
+    OPT_OUTPUT_DIR,
     OPT_LIBRARY,
     OPT_RUNTIMEBC,
     OPT_PIC,
@@ -66,7 +66,7 @@ static opt_arg_t args[] =
     { "define", 'D', OPT_ARG_REQUIRED, OPT_BUILDFLAG },
     { "strip", 's', OPT_ARG_NONE, OPT_STRIP },
     { "path", 'p', OPT_ARG_REQUIRED, OPT_PATHS },
-    { "output", 'o', OPT_ARG_REQUIRED, OPT_OUTPUT },
+    { "output-dir", '\0', OPT_ARG_REQUIRED, OPT_OUTPUT_DIR },
     { "library", 'l', OPT_ARG_NONE, OPT_LIBRARY },
     { "runtimebc", '\0', OPT_ARG_NONE, OPT_RUNTIMEBC },
     { "pic", '\0', OPT_ARG_NONE, OPT_PIC },
@@ -197,7 +197,7 @@ int coneOptSet(ConeOptions *opt, int *argc, char **argv) {
 
         case OPT_DEBUG: opt->release = 0; break;
         case OPT_STRIP: opt->strip_debug = 1; break;
-        case OPT_OUTPUT: opt->output = s.arg_val; break;
+        case OPT_OUTPUT_DIR: opt->output = s.arg_val; break;
         case OPT_LIBRARY: opt->library = 1; break;
         case OPT_RUNTIMEBC: opt->runtimebc = 1; break;
         case OPT_PIC: opt->pic = 1; break;

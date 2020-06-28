@@ -328,7 +328,7 @@ void genlOut(char *objpath, char *asmpath, LLVMModuleRef mod, char *triple, LLVM
 
     // Generate .o or .obj file
     if (LLVMTargetMachineEmitToFile(machine, mod, objpath, LLVMObjectFile, &err) != 0) {
-        errorMsg(ErrorGenErr, "Could not emit obj file: %s", err);
+        errorMsg(ErrorGenErr, "Could not emit obj file to path %s: %s", objpath, err);
         LLVMDisposeMessage(err);
     }
 }
