@@ -2,13 +2,12 @@ cmake_minimum_required(VERSION 3.11)
 project(valec)
 cmake_policy(VERSION 3.11)
 
-find_package(LLVM 7.1.0 REQUIRED CONFIG)
+find_package(LLVM 7 REQUIRED CONFIG)
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++11")
-set(CMAKE_C_COMPILER /usr/local/opt/llvm@7/bin/clang)
 
 include(FetchContent)
 
@@ -30,144 +29,30 @@ include_directories(
 )
 add_definitions(${LLVM_DEFINITIONS})
 
-# output from `llvm-config --components | tr " " "\n"`
+# See either:
+#   llvm-config-7 --libfiles --link-static
+#   llvm-config --components | tr " " "\n"
+# for what we could use here.
+# We'll keep it to a minimum for now, because different machines
+# seem to support different components.
 set(LLVM_LINK_COMPONENTS
-		aarch64asmparser
-		aarch64asmprinter
-		aarch64codegen
-		aarch64desc
-		aarch64disassembler
-		aarch64info
-		aarch64utils
-		aggressiveinstcombine
-		all
-		amdgpuasmparser
-		amdgpuasmprinter
-		amdgpucodegen
-		amdgpudesc
-		amdgpudisassembler
-		amdgpuinfo
-		amdgpuutils
-		analysis
-		armasmparser
-		armasmprinter
-		armcodegen
-		armdesc
-		armdisassembler
-		arminfo
-		armutils
-		asmparser
-		asmprinter
-		binaryformat
-		bitreader
-		bitwriter
-		bpfasmparser
-		bpfasmprinter
-		bpfcodegen
-		bpfdesc
-		bpfdisassembler
-		bpfinfo
-		codegen
-		core
-		coroutines
-		coverage
-		debuginfocodeview
-		debuginfodwarf
-		debuginfomsf
-		debuginfopdb
-		demangle
-		dlltooldriver
-		executionengine
-		fuzzmutate
-		globalisel
-		hexagonasmparser
-		hexagoncodegen
-		hexagondesc
-		hexagondisassembler
-		hexagoninfo
-		instcombine
-		instrumentation
-		interpreter
-		ipo
-		irreader
-		lanaiasmparser
-		lanaiasmprinter
-		lanaicodegen
-		lanaidesc
-		lanaidisassembler
-		lanaiinfo
-		libdriver
-		lineeditor
-		linker
-		lto
-		mc
-		mcdisassembler
-		mcjit
-		mcparser
-		mipsasmparser
-		mipsasmprinter
-		mipscodegen
-		mipsdesc
-		mipsdisassembler
-		mipsinfo
-		mirparser
-		msp430asmprinter
-		msp430codegen
-		msp430desc
-		msp430info
-		native
-		nativecodegen
-		nvptxasmprinter
-		nvptxcodegen
-		nvptxdesc
-		nvptxinfo
-		objcarcopts
-		object
-		objectyaml
-		option
-		orcjit
-		passes
-		powerpcasmparser
-		powerpcasmprinter
-		powerpccodegen
-		powerpcdesc
-		powerpcdisassembler
-		powerpcinfo
-		profiledata
-		runtimedyld
-		scalaropts
-		selectiondag
-		sparcasmparser
-		sparcasmprinter
-		sparccodegen
-		sparcdesc
-		sparcdisassembler
-		sparcinfo
-		support
-		symbolize
-		systemzasmparser
-		systemzasmprinter
-		systemzcodegen
-		systemzdesc
-		systemzdisassembler
-		systemzinfo
-		tablegen
-		target
-		transformutils
-		vectorize
-		windowsmanifest
-		x86asmparser
-		x86asmprinter
-		x86codegen
-		x86desc
-		x86disassembler
-		x86info
-		x86utils
-		xcoreasmprinter
-		xcorecodegen
-		xcoredesc
-		xcoredisassembler
-		xcoreinfo
+		Core
+		Passes
+
+		WebAssemblyAsmParser
+		WebAssemblyAsmPrinter
+		WebAssemblyCodeGen
+		WebAssemblyDesc
+		WebAssemblyDisassembler
+		WebAssemblyInfo
+
+		X86AsmParser
+		X86AsmPrinter
+		X86CodeGen
+		X86Desc
+		X86Disassembler
+		X86Info
+		X86Utils
 )
 
 llvm_map_components_to_libnames(llvm_libs ${LLVM_LINK_COMPONENTS})
@@ -256,3 +141,4 @@ add_executable(valec
 )
 
 target_link_libraries(valec ${llvm_libs} nlohmann_json::nlohmann_json)
+
