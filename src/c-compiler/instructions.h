@@ -164,6 +164,14 @@ public:
   Local* local;
   Expression* sourceExpr;
   std::string localName;
+
+  LocalStore(
+      Local* local_,
+      Expression* sourceExpr_,
+      std::string localName_) :
+      local(local_),
+      sourceExpr(sourceExpr_),
+      localName(localName_) {}
 };
 
 
@@ -299,14 +307,10 @@ public:
 
 class While : public Expression {
 public:
-  Block* bodyBlock;
-};
+  Expression* bodyExpr;
 
-class InlineBlock : public Expression {
-public:
-  Block* block;
+  While(Expression* bodyExpr_) : bodyExpr(bodyExpr_) {}
 };
-
 
 class Block : public Expression {
 public:

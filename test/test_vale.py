@@ -16,8 +16,8 @@ def procrun(args: List[str], **kwargs) -> subprocess.CompletedProcess:
 class ValeTest(unittest.TestCase):
     GENPATH: str = os.environ.get('GENPATH', "cmake-build-debug")
 
-    def valestrom(self, vale_file: str, vir_file: str) -> str:
-        driver = "Driver20200627.jar"
+    def valestrom(self, vale_file: str, vir_file: str) -> subprocess.CompletedProcess:
+        driver = "Driver20200628.jar"
         driver_class = "net.verdagon.vale.driver.Driver"
         return procrun(
             [
@@ -37,7 +37,7 @@ class ValeTest(unittest.TestCase):
         assert self.GENPATH
         return procrun([f"../{self.GENPATH}/valec", "--output-dir", o_files_dir, vir_file])
 
-    def clang(self, o_files: str, exe_file: str) -> subprocess.CompletedProcess:
+    def clang(self, o_files: List[str], exe_file: str) -> subprocess.CompletedProcess:
         return procrun(["clang", "-o", exe_file] + o_files)
 
     def exec(self, exe_file: str) -> subprocess.CompletedProcess:
@@ -51,7 +51,7 @@ class ValeTest(unittest.TestCase):
             file=sys.stderr
         )
 
-    def compile_and_execute(self, vale_file: str) -> None:
+    def compile_and_execute(self, vale_file: str) -> subprocess.CompletedProcess:
         build_dir = f"test_build/{os.path.splitext(vale_file)[0]}_build"
 
         if os.path.exists(build_dir):
@@ -83,6 +83,12 @@ class ValeTest(unittest.TestCase):
 
     def test_if(self) -> None:
         self.compile_and_execute_and_expect_return_code("if.vale", 42)
+
+    def test_mutlocal(self) -> None:
+        self.compile_and_execute_and_expect_return_code("mutlocal.vale", 42)
+
+    # def test_while(self) -> None:
+    #     self.compile_and_execute_and_expect_return_code("while.vale", 42)
 
 
 if __name__ == '__main__':

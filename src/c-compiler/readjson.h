@@ -36,6 +36,8 @@ Referend* readReferend(const json& referend) {
   assert(referend.is_object());
   if (referend[""] == "Int") {
     return new Int();
+  } else if (referend[""] == "Bool") {
+    return new Bool();
   } else if (referend[""] == "Str") {
     return new Str();
   } else if (referend[""] == "Void") {
@@ -117,6 +119,11 @@ Expression* readExpression(const json& expression) {
         readExpression(expression["sourceExpr"]),
         readLocal(expression["local"]),
         "");
+  } else if (type == "LocalStore") {
+    return new LocalStore(
+        readLocal(expression["local"]),
+        readExpression(expression["sourceExpr"]),
+        expression["localName"]);
   } else if (type == "Discard") {
     return new Discard(
         readExpression(expression["sourceExpr"]));
@@ -149,6 +156,9 @@ Expression* readExpression(const json& expression) {
         readExpression(expression["thenBlock"]),
         readExpression(expression["elseBlock"]),
         readReference(expression["commonSupertype"]));
+  } else if (type == "While") {
+    return new While(
+        readExpression(expression["bodyBlock"]));
 
   } else {
     std::cerr << "Unexpected instruction: " << type << std::endl;
