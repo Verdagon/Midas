@@ -84,8 +84,8 @@ class ValeTest(unittest.TestCase):
     def test_if(self) -> None:
         self.compile_and_execute_and_expect_return_code("if.vale", 42)
 
-    def test_mutlocal(self) -> None:
-        self.compile_and_execute_and_expect_return_code("mutlocal.vale", 42)
+    # def test_mutlocal(self) -> None:
+    #     self.compile_and_execute_and_expect_return_code("mutlocal.vale", 42)
 
     # def test_while(self) -> None:
     #     self.compile_and_execute_and_expect_return_code("while.vale", 42)
