@@ -41,6 +41,7 @@ Referend* readReferend(const json& referend) {
   } else if (referend[""] == "Void") {
     return new Void();
   } else {
+    std::cerr << "Unrecognized referend: " << referend[""] << std::endl;
     assert(false);
   }
 }
@@ -105,6 +106,9 @@ Expression* readExpression(const json& expression) {
   if (type == "ConstantI64") {
     return new ConstantI64(
         expression["value"]);
+  } else if (type == "ConstantBool") {
+    return new ConstantBool(
+        expression["value"]);
   } else if (type == "Return") {
     return new Return(
         readExpression(expression["sourceExpr"]));
@@ -139,7 +143,15 @@ Expression* readExpression(const json& expression) {
   } else if (type == "Block") {
     return new Block(
         readArray(expression["exprs"], readExpression));
+  } else if (type == "If") {
+    return new If(
+        readExpression(expression["conditionBlock"]),
+        readExpression(expression["thenBlock"]),
+        readExpression(expression["elseBlock"]),
+        readReference(expression["commonSupertype"]));
+
   } else {
+    std::cerr << "Unexpected instruction: " << type << std::endl;
     assert(false);
   }
 }

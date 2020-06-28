@@ -87,6 +87,10 @@ packages
 # vale frontend compiler driver generated files
 *.vir
 
+# Build output
+valec
+test/test_build
+
 # python
 __pycache__
 .mypy_cache

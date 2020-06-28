@@ -76,6 +76,7 @@ void compileValeCode(LLVMModuleRef mod, const char* filename) {
   std::ifstream instream(filename);
   std::string str(std::istreambuf_iterator<char>{instream}, {});
 
+  assert(str.size() > 0);
   auto programJ = json::parse(str.c_str());
   auto program = readProgram(programJ);
 
