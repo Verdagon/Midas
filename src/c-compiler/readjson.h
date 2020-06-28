@@ -41,6 +41,7 @@ Referend* readReferend(const json& referend) {
   } else if (referend[""] == "Void") {
     return new Void();
   } else {
+    std::cerr << "Unrecognized referend: " << referend[""] << std::endl;
     assert(false);
   }
 }
@@ -140,6 +141,7 @@ Expression* readExpression(const json& expression) {
     return new Block(
         readArray(expression["exprs"], readExpression));
   } else {
+    std::cerr << "Unexpected instruction: " << type << std::endl;
     assert(false);
   }
 }

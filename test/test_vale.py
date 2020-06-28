@@ -1,10 +1,10 @@
 import unittest
 import subprocess
-import re
-import json
 import os.path
 import os
 import sys
+import shutil
+import glob
 
 from typing import Dict, Any, List, Callable
 
@@ -16,7 +16,7 @@ def procrun(args: List[str], **kwargs) -> subprocess.CompletedProcess:
 class ValeTest(unittest.TestCase):
     GENPATH: str = os.environ.get('GENPATH', "cmake-build-debug")
 
-    def valestrom(self, input_file: str, output_file: str) -> str:
+    def valestrom(self, vale_file: str, vir_file: str) -> str:
         driver = "Driver20200627.jar"
         driver_class = "net.verdagon.vale.driver.Driver"
         return procrun(
@@ -27,21 +27,21 @@ class ValeTest(unittest.TestCase):
                 driver_class,
                 "build",
                 "-o",
-                output_file,
-                input_file
+                vir_file,
+                vale_file
             ],
             check=True
         )
 
-    def valec(self, args: List[str]) -> subprocess.CompletedProcess:
+    def valec(self, vir_file: str, o_files_dir: str) -> subprocess.CompletedProcess:
         assert self.GENPATH
-        return procrun([f"../{self.GENPATH}/valec"] + args)
+        return procrun([f"../{self.GENPATH}/valec", "--output-dir", o_files_dir, vir_file])
 
-    def clang(self, args: List[str]) -> subprocess.CompletedProcess:
-        return procrun(["clang"] + args)
+    def clang(self, o_files: str, exe_file: str) -> subprocess.CompletedProcess:
+        return procrun(["clang", "-o", exe_file] + o_files)
 
-    def aout(self) -> subprocess.CompletedProcess:
-        return procrun(["./a.out"])
+    def exec(self, exe_file: str) -> subprocess.CompletedProcess:
+        return procrun([f"./{exe_file}"])
 
     def setUp(self) -> None:
         self.GENPATH: str = type(self).GENPATH
@@ -51,21 +51,38 @@ class ValeTest(unittest.TestCase):
             file=sys.stderr
         )
 
-    def test_valec_blackbox(self) -> None:
+    def compile_and_execute(self, vale_file: str) -> None:
+        build_dir = f"test_build/{os.path.splitext(vale_file)[0]}_build"
 
+        if os.path.exists(build_dir):
+            shutil.rmtree(build_dir)
+        os.makedirs(build_dir)
 
-        vale_file = "addret.vale"
-        vir_file = f"{os.path.splitext(vale_file)[0]}.vir"
-
+        vir_file = f"{build_dir}/{os.path.splitext(vale_file)[0]}.vir"
         proc = self.valestrom(vale_file, vir_file)
-        self.assertEqual(proc.returncode, 0, "valestrom couldn't compile addret.vale!")
+        self.assertEqual(proc.returncode, 0, f"valestrom couldn't compile {vale_file}:\n" + proc.stdout + "\n" + proc.stderr)
 
-        proc = self.valec(['addret.vir'])
-        self.assertEqual(proc.returncode, 0, "valec couldn't compile addret.vir!")
-        proc = self.clang(["addret.o"])
-        self.assertEqual(proc.returncode, 0, "clang couldn't compile addret.o")
-        proc = self.aout()
-        self.assertEqual(proc.returncode, 7)
+        proc = self.valec(vir_file, build_dir)
+        self.assertEqual(proc.returncode, 0, f"valec couldn't compile {vir_file}:\n" + proc.stdout + "\n" + proc.stderr)
+
+        exe_file = f"{build_dir}/{os.path.splitext(vale_file)[0]}"
+        o_files = glob.glob(f"{build_dir}/*.o")
+        proc = self.clang(o_files, exe_file)
+        self.assertEqual(proc.returncode, 0, f"clang couldn't compile {o_files}:\n" + proc.stdout + "\n" + proc.stderr)
+
+        proc = self.exec(exe_file)
+        return proc
+
+    def compile_and_execute_and_expect_return_code(self, vale_file: str, expected_return_code):
+        proc = self.compile_and_execute(vale_file)
+        self.assertEqual(proc.returncode, expected_return_code, f"Unexpected result: {proc.returncode}")
+
+
+    def test_addret(self) -> None:
+        self.compile_and_execute_and_expect_return_code("addret.vale", 7)
+
+    # def test_if(self) -> None:
+    #     self.compile_and_execute_and_expect_return_code("if.vale", 1337)
 
 
 if __name__ == '__main__':
