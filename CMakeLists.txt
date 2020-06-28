@@ -134,10 +134,6 @@ add_executable(valec
 		src/c-compiler/parser/parsetype.c
 
 		src/c-compiler/genllvm/genllvm.c
-		src/c-compiler/genllvm/genlstmt.c
-		src/c-compiler/genllvm/genlexpr.c
-		src/c-compiler/genllvm/genlalloc.c
-		src/c-compiler/genllvm/genltype.c
 )
 
 target_link_libraries(valec ${llvm_libs} nlohmann_json::nlohmann_json)

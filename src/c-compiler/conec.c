@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
     // Parse source file, do semantic analysis, and generate code
     ModuleNode *modnode = NULL;
     if (!errors)
-        genmod(&gen, modnode);
+        genMod(&gen, modnode);
 
     genClose(&gen);
     errorSummary();
