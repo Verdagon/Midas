@@ -11,13 +11,11 @@ public:
   LLVMValueRef containingFunc;
   std::unordered_map<int, LLVMValueRef> localAddrByLocalId;
   int nextBlockNumber = 1;
-  LLVMBuilderRef builder;
 
   FunctionState(
       LLVMValueRef containingFunc_,
       LLVMBuilderRef builder_) :
-      containingFunc(containingFunc_),
-      builder(builder_) {}
+      containingFunc(containingFunc_) {}
 };
 
 LLVMTypeRef translateType(Reference* referenceM) {
@@ -40,28 +38,32 @@ std::vector<LLVMTypeRef> translateTypes(std::vector<Reference*> referencesM) {
 LLVMValueRef translateExpression(
     GlobalState* globalState,
     FunctionState* functionState,
+    LLVMBuilderRef builder,
     Expression* expr);
 LLVMValueRef translateCall(
     GlobalState* globalState,
     FunctionState* functionState,
+    LLVMBuilderRef builder,
     Call* call);
 LLVMValueRef translateExternCall(
     GlobalState* globalState,
     FunctionState* functionState,
+    LLVMBuilderRef builder,
     ExternCall* expr);
 
 
 LLVMValueRef translateExternCall(
     GlobalState* globalState,
     FunctionState* functionState,
+    LLVMBuilderRef builder,
     ExternCall* call) {
   auto name = call->function->name->name;
   if (name == "F(\"__addIntInt\",[],[R(*,i),R(*,i)])") {
     assert(call->argExprs.size() == 2);
     return LLVMBuildAdd(
-        functionState->builder,
-        translateExpression(globalState, functionState, call->argExprs[0]),
-        translateExpression(globalState, functionState, call->argExprs[1]),
+        builder,
+        translateExpression(globalState, functionState, builder, call->argExprs[0]),
+        translateExpression(globalState, functionState, builder, call->argExprs[1]),
         "add");
   } else if (name == "F(\"__addFloatFloat\",[],[R(*,f),R(*,f)])") {
     // VivemExterns.addFloatFloat
@@ -72,9 +74,9 @@ LLVMValueRef translateExternCall(
   } else if (name == "F(\"__multiplyIntInt\",[],[R(*,i),R(*,i)])") {
     assert(call->argExprs.size() == 2);
     return LLVMBuildMul(
-        functionState->builder,
-        translateExpression(globalState, functionState, call->argExprs[0]),
-        translateExpression(globalState, functionState, call->argExprs[1]),
+        builder,
+        translateExpression(globalState, functionState, builder, call->argExprs[0]),
+        translateExpression(globalState, functionState, builder, call->argExprs[1]),
         "mul");
   } else if (name == "F(\"__subtractIntInt\",[],[R(*,i),R(*,i)])") {
     // VivemExterns.subtractIntInt
@@ -120,11 +122,12 @@ LLVMValueRef translateExternCall(
 std::vector<LLVMValueRef> translateExpressions(
     GlobalState* globalState,
     FunctionState* functionState,
+    LLVMBuilderRef builder,
     std::vector<Expression*> exprs) {
   auto result = std::vector<LLVMValueRef>{};
   result.reserve(exprs.size());
   for (auto expr : exprs) {
-    result.push_back(translateExpression(globalState, functionState, expr));
+    result.push_back(translateExpression(globalState, functionState, builder, expr));
   }
   return result;
 }
@@ -132,95 +135,104 @@ std::vector<LLVMValueRef> translateExpressions(
 LLVMValueRef translateCall(
     GlobalState* globalState,
     FunctionState* functionState,
+    LLVMBuilderRef builder,
     Call* call) {
   auto funcIter = globalState->functions.find(call->function->name->name);
   assert(funcIter != globalState->functions.end());
   auto funcL = funcIter->second;
 
-  auto argExprsL = translateExpressions(globalState, functionState, call->argExprs);
-  return LLVMBuildCall(functionState->builder, funcL, argExprsL.data(), argExprsL.size(), "");
+  auto argExprsL = translateExpressions(globalState, functionState, builder, call->argExprs);
+  return LLVMBuildCall(builder, funcL, argExprsL.data(), argExprsL.size(), "");
 }
 
 LLVMValueRef translateExpression(
     GlobalState* globalState,
     FunctionState* functionState,
+    LLVMBuilderRef builder,
     Expression* expr) {
   if (auto constantI64 = dynamic_cast<ConstantI64*>(expr)) {
-    return LLVMConstInt(LLVMInt64Type(), constantI64->value, false);
+    // See AZTMCIE for why we load and store here.
+    auto localAddr = LLVMBuildAlloca(builder, LLVMInt64Type(), "");
+    LLVMBuildStore(builder, LLVMConstInt(LLVMInt64Type(), constantI64->value, false), localAddr);
+    return LLVMBuildLoad(builder, localAddr, "");
+  } else if (auto constantBool = dynamic_cast<ConstantBool*>(expr)) {
+    // See AZTMCIE for why this is an add.
+    auto localAddr = LLVMBuildAlloca(builder, LLVMInt1Type(), "");
+    LLVMBuildStore(builder, LLVMConstInt(LLVMInt1Type(), constantBool->value, false), localAddr);
+    return LLVMBuildLoad(builder, localAddr, "");
   } else if (auto discard = dynamic_cast<Discard*>(expr)) {
     std::cout << "do some cleanup here" << std::endl;
     LLVMValueRef empty[1] = {};
     return LLVMConstArray(LLVMInt64Type(), empty, 0);
   } else if (auto ret = dynamic_cast<Return*>(expr)) {
-    return LLVMBuildRet(functionState->builder, translateExpression(globalState, functionState, ret->sourceExpr));
+    return LLVMBuildRet(builder, translateExpression(globalState, functionState, builder, ret->sourceExpr));
   } else if (auto stackify = dynamic_cast<Stackify*>(expr)) {
     assert(functionState->localAddrByLocalId.count(stackify->local->id->number) == 0);
     auto name = std::string("r") + std::to_string(stackify->local->id->number);
-    auto valueToStore = translateExpression(globalState, functionState, stackify->sourceExpr);
-    auto localAddr = LLVMBuildAlloca(functionState->builder, translateType(stackify->local->type), name.c_str());
+    auto valueToStore = translateExpression(globalState, functionState, builder, stackify->sourceExpr);
+    auto localAddr = LLVMBuildAlloca(builder, translateType(stackify->local->type), name.c_str());
     functionState->localAddrByLocalId.emplace(stackify->local->id->number, localAddr);
-    LLVMBuildStore(functionState->builder, valueToStore, localAddr);
+    LLVMBuildStore(builder, valueToStore, localAddr);
     LLVMValueRef empty[1] = {};
     return LLVMConstArray(LLVMInt64Type(), empty, 0);
   } else if (auto localLoad = dynamic_cast<LocalLoad*>(expr)) {
     auto localAddrIter = functionState->localAddrByLocalId.find(localLoad->local->id->number);
     assert(localAddrIter != functionState->localAddrByLocalId.end());
     auto localAddr = localAddrIter->second;
-    return LLVMBuildLoad(functionState->builder, localAddr, localLoad->localName.c_str());
+    return LLVMBuildLoad(builder, localAddr, localLoad->localName.c_str());
   } else if (auto unstackify = dynamic_cast<Unstackify*>(expr)) {
     auto localAddrIter = functionState->localAddrByLocalId.find(unstackify->local->id->number);
     assert(localAddrIter != functionState->localAddrByLocalId.end());
     auto localAddr = localAddrIter->second;
-    return LLVMBuildLoad(functionState->builder, localAddr, "");
+    return LLVMBuildLoad(builder, localAddr, "");
   } else if (auto call = dynamic_cast<Call*>(expr)) {
-    return translateCall(globalState, functionState, call);
+    return translateCall(globalState, functionState, builder, call);
   } else if (auto externCall = dynamic_cast<ExternCall*>(expr)) {
-    return translateExternCall(globalState, functionState, externCall);
+    return translateExternCall(globalState, functionState, builder, externCall);
   } else if (auto argument = dynamic_cast<Argument*>(expr)) {
     return LLVMGetParam(functionState->containingFunc, argument->argumentIndex);
   } else if (auto block = dynamic_cast<Block*>(expr)) {
-    auto exprs = translateExpressions(globalState, functionState, block->exprs);
+    auto exprs = translateExpressions(globalState, functionState, builder, block->exprs);
     assert(!exprs.empty());
     return exprs.back();
+  } else if (auto iff = dynamic_cast<If*>(expr)) {
+    auto conditionExpr = translateExpression(globalState, functionState, builder, iff->conditionExpr);
+
+    int thenBlockNumber = functionState->nextBlockNumber++;
+    auto thenBlockName = std::string("block") + std::to_string(thenBlockNumber);
+    LLVMBasicBlockRef thenBlockL = LLVMAppendBasicBlock(functionState->containingFunc, thenBlockName.c_str());
+    LLVMBuilderRef thenBlockBuilder = LLVMCreateBuilder();
+    LLVMPositionBuilderAtEnd(thenBlockBuilder, thenBlockL);
+    auto thenExpr = translateExpression(globalState, functionState, thenBlockBuilder, iff->thenExpr);
+
+    int elseBlockNumber = functionState->nextBlockNumber++;
+    auto elseBlockName = std::string("block") + std::to_string(elseBlockNumber);
+    LLVMBasicBlockRef elseBlockL = LLVMAppendBasicBlock(functionState->containingFunc, elseBlockName.c_str());
+    LLVMBuilderRef elseBlockBuilder = LLVMCreateBuilder();
+    LLVMPositionBuilderAtEnd(elseBlockBuilder, elseBlockL);
+    auto elseExpr = translateExpression(globalState, functionState, elseBlockBuilder, iff->elseExpr);
+
+    LLVMBuildCondBr(builder, conditionExpr, thenBlockL, elseBlockL);
+
+    int afterwardBlockNumber = functionState->nextBlockNumber++;
+    auto afterwardBlockName = std::string("block") + std::to_string(afterwardBlockNumber);
+    LLVMBasicBlockRef afterwardBlockL = LLVMAppendBasicBlock(functionState->containingFunc, afterwardBlockName.c_str());
+    LLVMBuildBr(thenBlockBuilder, afterwardBlockL);
+    LLVMBuildBr(elseBlockBuilder, afterwardBlockL);
+
+    LLVMPositionBuilderAtEnd(builder, afterwardBlockL);
+    auto phi = LLVMBuildPhi(builder, translateType(iff->commonSupertype), "");
+    LLVMValueRef incomingValueRefs[2] = { thenExpr, elseExpr };
+    LLVMBasicBlockRef incomingBlocks[2] = { thenBlockL, elseBlockL };
+    LLVMAddIncoming(phi, incomingValueRefs, incomingBlocks, 2);
+
+    return phi;
   } else {
     std::string name = typeid(*expr).name();
     std::cout << name << std::endl;
     assert(false);
   }
   assert(false);
-}
-
-// Returns block and the result expression.
-std::tuple<LLVMBasicBlockRef, LLVMValueRef>
-translateBlock(
-    GlobalState* globalState,
-    FunctionState* functionState,
-    Block* block) {
-
-  int blockNumber = functionState->nextBlockNumber++;
-  auto blockName = std::string("block") + std::to_string(blockNumber);
-  LLVMBasicBlockRef blockL = LLVMAppendBasicBlock(functionState->containingFunc, blockName.c_str());
-
-  LLVMPositionBuilderAtEnd(functionState->builder, blockL);
-
-  LLVMValueRef lastResult;
-  assert(!block->exprs.empty());
-
-  for (int i = 0; i < block->exprs.size(); i++) {
-    auto expr = block->exprs[i];
-
-    auto result = translateExpression(globalState, functionState, expr);
-
-    if (i < block->exprs.size() - 1) {
-      assert(dynamic_cast<Discard *>(expr) != nullptr ||
-          dynamic_cast<Return *>(expr) != nullptr ||
-          dynamic_cast<Stackify *>(expr) != nullptr);
-    } else {
-      lastResult = result;
-    }
-  }
-
-  return std::make_tuple(blockL, lastResult);
 }
 
 LLVMValueRef declareFunction(
@@ -259,9 +271,9 @@ void translateFunction(
   auto blockName = std::string("block") + std::to_string(blockNumber);
   LLVMBasicBlockRef blockL = LLVMAppendBasicBlock(functionState.containingFunc, blockName.c_str());
 
-  LLVMPositionBuilderAtEnd(functionState.builder, blockL);
+  LLVMPositionBuilderAtEnd(builder, blockL);
 
-  translateExpression(globalState, &functionState, functionM->block);
+  translateExpression(globalState, &functionState, builder, functionM->block);
 }
 
 #endif
