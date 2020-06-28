@@ -37,57 +37,6 @@
 #define objext "o"
 #endif
 
-// Generate parameter variable
-void genlParmVar(GenState *gen, VarDclNode *var) {
-    assert(var->tag == VarDclTag);
-    // We always alloca in case variable is mutable or we want to take address of its value
-    var->llvmvar = genlAlloca(gen, genlType(gen, var->vtype), &var->namesym->namestr);
-    LLVMBuildStore(gen->builder, LLVMGetParam(gen->fn, var->index), var->llvmvar);
-}
-
-// Generate a function
-void genlFn(GenState *gen, FnDclNode *fnnode) {
-    if (fnnode->value->tag == IntrinsicTag)
-        return;
-
-    LLVMValueRef svfn = gen->fn;
-    LLVMBuilderRef svbuilder = gen->builder;
-    LLVMValueRef svallocaPoint = gen->allocaPoint;
-
-    FnSigNode *fnsig = (FnSigNode*)fnnode->vtype;
-    assert(fnnode->value->tag == BlockTag);
-    gen->fn = fnnode->llvmvar;
-
-    // Attach block and builder to function
-    LLVMBasicBlockRef entry = LLVMAppendBasicBlockInContext(gen->context, gen->fn, "entry");
-    gen->builder = LLVMCreateBuilder();
-    LLVMPositionBuilderAtEnd(gen->builder, entry);
-
-    // Create our alloca insert point by generating a dummy instruction.
-    // It will be erased after generating all LLVM IR code for the function
-    LLVMValueRef allocaPoint = LLVMBuildAlloca(gen->builder, LLVMInt32TypeInContext(gen->context), "alloca_point");
-    gen->allocaPoint = allocaPoint;
-
-	// Generate LLVMValueRef's for all parameters, so we can use them as local vars in code
-    uint32_t cnt;
-    INode **nodesp;
-    for (nodesFor(fnsig->parms, cnt, nodesp))
-        genlParmVar(gen, (VarDclNode*)*nodesp);
-
-    // Generate the function's code (always a block)
-    genlBlock(gen, (BlockNode *)fnnode->value);
-
-	// erase temporary dummy alloca inserted earlier
-    if (LLVMGetInstructionParent(allocaPoint))
-        LLVMInstructionEraseFromParent(allocaPoint);
-
-    LLVMDisposeBuilder(gen->builder);
-
-    gen->builder = svbuilder;
-    gen->fn = svfn;
-    gen->allocaPoint = svallocaPoint;
-}
-
 // Insert every alloca before the allocaPoint in the function's entry block.
 // Why? To improve LLVM optimization of SRoA and mem2reg, all allocas
 // should be located in the function's entry block before the first call.
@@ -97,152 +46,6 @@ LLVMValueRef genlAlloca(GenState *gen, LLVMTypeRef type, const char *name) {
     LLVMValueRef alloca = LLVMBuildAlloca(gen->builder, type, name);
     LLVMPositionBuilderAtEnd(gen->builder, current_block);
     return alloca;
-}
-
-// Generate global variable
-void genlGloVar(GenState *gen, VarDclNode *varnode) {
-    if (varnode->value->tag == StringLitTag) {
-        SLitNode *strnode = (SLitNode*)varnode->value;
-        LLVMSetInitializer(varnode->llvmvar, LLVMConstStringInContext(gen->context, strnode->strlit, strnode->strlen, 1));
-    }
-    else
-        LLVMSetInitializer(varnode->llvmvar, genlExpr(gen, varnode->value));
-}
-
-// Generate LLVMValueRef for a global variable
-void genlGloVarName(GenState *gen, VarDclNode *glovar) {
-    glovar->llvmvar = LLVMAddGlobal(gen->module, genlType(gen, glovar->vtype), glovar->genname);
-    if (permIsSame(glovar->perm, (INode*) immPerm))
-        LLVMSetGlobalConstant(glovar->llvmvar, 1);
-    if (glovar->namesym && glovar->namesym->namestr == '_')
-        LLVMSetVisibility(glovar->llvmvar, LLVMHiddenVisibility);
-}
-
-// Create mangled function name for overloaded function
-char *genlMangleMethName(char *workbuf, FnDclNode *node) {
-    // Use genned name if not an overloadable method/generic function
-    if (!(node->flags & FlagMethFld) && node->instnode == NULL)
-        return node->genname;
-
-    strcat(workbuf, node->genname);
-    char *bufp = workbuf + strlen(workbuf);
-
-    FnSigNode *fnsig = (FnSigNode *)node->vtype;
-    uint32_t cnt;
-    INode **nodesp;
-    for (nodesFor(fnsig->parms, cnt, nodesp)) {
-        *bufp++ = ':';
-        bufp = itypeMangle(bufp, ((IExpNode *)*nodesp)->vtype);
-    }
-    *bufp = '\0';
-
-    return workbuf;
-}
-
-// Generate LLVMValueRef for a global function
-void genlGloFnName(GenState *gen, FnDclNode *glofn) {
-    // Add function to the module
-    if (glofn->value == NULL || glofn->value->tag != IntrinsicTag) {
-        char workbuf[2048] = { '\0' };
-        char *manglednm = genlMangleMethName(workbuf, glofn);
-        char *fnname = glofn->namesym? &glofn->namesym->namestr : "";
-        glofn->llvmvar = LLVMAddFunction(gen->module, manglednm, genlType(gen, glofn->vtype));
-
-        // Specify appropriate storage class, visibility and call convention
-        // extern functions (linkedited in separately):
-        if (glofn->flags & FlagSystem) {
-            LLVMSetFunctionCallConv(glofn->llvmvar, LLVMX86StdcallCallConv);
-            LLVMSetDLLStorageClass(glofn->llvmvar, LLVMDLLImportStorageClass);
-        }
-        // else if glofn-flags involve dynamic library export:
-        //    LLVMSetDLLStorageClass(glofn->llvmvar, LLVMDLLExportStorageClass); 
-        else if (fnname[0] == '_') {
-            // Private globals should be hidden. (public globals have DefaultVisibility)            
-            LLVMSetVisibility(glofn->llvmvar, LLVMHiddenVisibility);
-        }
-
-        // Add metadata on implemented functions (debug mode only)
-        if (!gen->opt->release && glofn->value) {
-            LLVMMetadataRef fntype = LLVMDIBuilderCreateSubroutineType(gen->dibuilder,
-                gen->difile, NULL, 0, 0);
-            LLVMMetadataRef sp = LLVMDIBuilderCreateFunction(gen->dibuilder, gen->difile,
-                fnname, strlen(fnname), manglednm, strlen(manglednm),
-                gen->difile, glofn->linenbr, fntype, 0, 1, glofn->linenbr, LLVMDIFlagPublic, 0);
-            LLVMSetSubprogram(glofn->llvmvar, sp);
-        }
-    }
-}
-
-// Generate all instantiations of generic functions
-void genlGeneric(GenState *gen, GenericNode *gennode, int dobody) {
-    if (gennode->body->tag != FnDclTag)
-        return;
-
-    uint32_t cnt;
-    INode **nodesp;
-    for (nodesFor(gennode->memonodes, cnt, nodesp)) {
-        ++nodesp; --cnt;
-        if (dobody)
-            genlFn(gen, (FnDclNode*)*nodesp);
-        else
-            genlGloFnName(gen, (FnDclNode *)*nodesp);
-    }
-}
-
-// Generate module's nodes
-void genlModule(GenState *gen, ModuleNode *mod) {
-    uint32_t cnt;
-    INode **nodesp;
-
-    // First generate the global variable LLVMValueRef for every global variable
-    // This way forward references to global variables will work correctly
-    for (nodesFor(mod->nodes, cnt, nodesp)) {
-        INode *nodep = *nodesp;
-        if (nodep->tag == VarDclTag)
-            genlGloVarName(gen, (VarDclNode *)nodep);
-        else if (nodep->tag == FnDclTag)
-            genlGloFnName(gen, (FnDclNode *)nodep);
-        else if (nodep->tag == GenericDclTag)
-            genlGeneric(gen, (GenericNode *)nodep, 0);
-    }
-
-    // Generate the function's block or the variable's initialization value
-    for (nodesFor(mod->nodes, cnt, nodesp)) {
-        INode *nodep = *nodesp;
-        switch (nodep->tag) {
-        case VarDclTag:
-            if (((VarDclNode*)nodep)->value) {
-                genlGloVar(gen, (VarDclNode*)nodep);
-            }
-            break;
-
-        case FnDclTag:
-            if (((FnDclNode*)nodep)->value) {
-                genlFn(gen, (FnDclNode*)nodep);
-            }
-            break;
-
-        case MacroDclTag:
-        case GenericDclTag:
-            genlGeneric(gen, (GenericNode*)nodep, 1);
-            break;
-
-        // Generate allocator definition
-        case RegionTag:
-            genlType(gen, nodep);
-            break;
-
-        case ModuleTag:
-            genlModule(gen, (ModuleNode*)nodep);
-            break;
-
-        default:
-            // No need to generate type declarations: type uses will do so
-            if (isTypeNode(nodep))
-                break;
-            assert(0 && "Invalid global area node");
-        }
-    }
 }
 
 void genlPackage(GenState *gen, ModuleNode *mod) {
@@ -334,7 +137,7 @@ void genlOut(char *objpath, char *asmpath, LLVMModuleRef mod, char *triple, LLVM
 }
 
 // Generate IR nodes into LLVM IR using LLVM
-void genmod(GenState *gen, ModuleNode *mod) {
+void genMod(GenState *gen, ModuleNode *mod) {
     char *err;
 
     // Generate IR to LLVM IR
@@ -399,7 +202,7 @@ void genSetup(GenState *gen, ConeOptions *opt) {
     // Obtain data layout info, particularly pointer sizes
     gen->machine = machine;
     gen->datalayout = LLVMCreateTargetDataLayout(machine);
-    opt->ptrsize = LLVMPointerSize(gen->datalayout) << 3;
+    opt->ptrsize = LLVMPointerSize(gen->datalayout) << 3u;
 
     gen->context = LLVMGetGlobalContext(); // LLVM inlining bugs prevent use of LLVMContextCreate();
     gen->fn = NULL;
