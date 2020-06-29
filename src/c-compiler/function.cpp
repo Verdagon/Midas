@@ -218,7 +218,14 @@ LLVMValueRef translateExpression(
         // be able to be ref counted.
 
         auto exprs = translateExpressions(globalState, functionState, builder, newStruct->sourceExprs);
-        return LLVMConstNamedStruct(structL, &exprs[0], exprs.size());
+
+        LLVMValueRef structValueBeingInitialized = LLVMGetUndef(structL);
+        for (int i = 0; i < exprs.size(); i++) {
+          structValueBeingInitialized =
+              LLVMBuildInsertValue(
+                  builder, structValueBeingInitialized, exprs[i], i, "");
+        }
+        return structValueBeingInitialized;
       }
       case Ownership::BORROW:
         // Wouldn't make sense to make a new struct and expect a borrow reference out of it.
@@ -341,11 +348,14 @@ LLVMValueRef translateExpression(
 //    int numIndicesForGetElementPtr = 1;
 //    auto ptrToMemberInStruct = LLVMBuildGEP(builder, structExpr, indicesForGetElementPtr, numIndicesForGetElementPtr, memberLoad->memberName.c_str());
 //    return LLVMBuildLoad(builder, ptrToMemberInStruct, "");
-    return LLVMBuildExtractElement(
+
+//    return LLVMBuildAdd(builder, LLVMConstInt(LLVMInt64Type(), 1337, false), LLVMConstInt(LLVMInt64Type(), 1448, false), "");
+
+    return LLVMBuildExtractValue(
         builder,
         structExpr,
-        LLVMConstInt(LLVMInt64Type(), memberLoad->memberIndex, false),
-        memberLoad->memberName.c_str());
+        memberLoad->memberIndex,
+        "");
   } else {
     std::string name = typeid(*expr).name();
     std::cout << name << std::endl;
