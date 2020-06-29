@@ -145,6 +145,18 @@ LLVMValueRef translateCall(
   return LLVMBuildCall(builder, funcL, argExprsL.data(), argExprsL.size(), "");
 }
 
+// A "Never" is something that should never be read.
+// This is useful in a lot of situations, for example:
+// - The return type of Panic()
+// - The result of the Discard node
+LLVMValueRef makeNever() {
+  LLVMValueRef empty[1] = {};
+  // We arbitrarily use a zero-len array of i57 here because it's zero sized and
+  // very unlikely to be used anywhere else.
+  // We could use an empty struct instead, but this'll do.
+  return LLVMConstArray(LLVMIntType(57), empty, 0);
+}
+
 LLVMValueRef translateExpression(
     GlobalState* globalState,
     FunctionState* functionState,
@@ -161,9 +173,16 @@ LLVMValueRef translateExpression(
     LLVMBuildStore(builder, LLVMConstInt(LLVMInt1Type(), constantBool->value, false), localAddr);
     return LLVMBuildLoad(builder, localAddr, "");
   } else if (auto discard = dynamic_cast<Discard*>(expr)) {
-    std::cout << "do some cleanup here" << std::endl;
-    LLVMValueRef empty[1] = {};
-    return LLVMConstArray(LLVMInt64Type(), empty, 0);
+    auto inner = translateExpression(globalState, functionState, builder, discard->sourceExpr);
+    if (dynamic_cast<Int*>(discard->sourceResultType->referend) ||
+        dynamic_cast<Bool*>(discard->sourceResultType->referend) ||
+        dynamic_cast<Float*>(discard->sourceResultType->referend)) {
+      // Do nothing for these, they're always inlined and copied.
+    } else {
+      std::cerr << "Unimplemented type in Discard: " << typeid(*discard->sourceResultType->referend).name() << std::endl;
+      assert(false);
+    }
+    return makeNever();
   } else if (auto ret = dynamic_cast<Return*>(expr)) {
     return LLVMBuildRet(builder, translateExpression(globalState, functionState, builder, ret->sourceExpr));
   } else if (auto stackify = dynamic_cast<Stackify*>(expr)) {
@@ -175,12 +194,29 @@ LLVMValueRef translateExpression(
     LLVMBuildStore(builder, valueToStore, localAddr);
     LLVMValueRef empty[1] = {};
     return LLVMConstArray(LLVMInt64Type(), empty, 0);
+  } else if (auto localStore = dynamic_cast<LocalStore*>(expr)) {
+    // The purpose of LocalStore is to put a swap value into a local, and give what
+    // was in it.
+
+    auto localAddrIter = functionState->localAddrByLocalId.find(localStore->local->id->number);
+    assert(localAddrIter != functionState->localAddrByLocalId.end());
+    auto localAddr = localAddrIter->second;
+
+    auto oldValue = LLVMBuildLoad(builder, localAddr, localStore->localName.c_str());
+
+    auto valueToStore = translateExpression(globalState, functionState, builder, localStore->sourceExpr);
+    LLVMBuildStore(builder, valueToStore, localAddr);
+
+    return oldValue;
   } else if (auto localLoad = dynamic_cast<LocalLoad*>(expr)) {
     auto localAddrIter = functionState->localAddrByLocalId.find(localLoad->local->id->number);
     assert(localAddrIter != functionState->localAddrByLocalId.end());
     auto localAddr = localAddrIter->second;
     return LLVMBuildLoad(builder, localAddr, localLoad->localName.c_str());
   } else if (auto unstackify = dynamic_cast<Unstackify*>(expr)) {
+    // The purpose of Unstackify is to destroy the local and give what was in it,
+    // but in LLVM there's no instruction (or need) for destroying a local.
+    // So, we just give what was in it. It's ironically identical to a localLoad.
     auto localAddrIter = functionState->localAddrByLocalId.find(unstackify->local->id->number);
     assert(localAddrIter != functionState->localAddrByLocalId.end());
     auto localAddr = localAddrIter->second;

@@ -18,7 +18,7 @@ class ValeTest(unittest.TestCase):
 
     def valestrom(self, vale_file: str,
                   vir_file: str) -> subprocess.CompletedProcess:
-        driver = "Driver20200627.jar"
+        driver = "Driver20200628.jar"
         driver_class = "net.verdagon.vale.driver.Driver"
         return procrun(
             [
@@ -88,7 +88,7 @@ class ValeTest(unittest.TestCase):
         return proc
 
     def compile_and_execute_and_expect_return_code(self, vale_file: str,
-                                                   expected_return_code):
+                                                   expected_return_code) -> None:
         proc = self.compile_and_execute(vale_file)
         self.assertEqual(proc.returncode, expected_return_code,
                          f"Unexpected result: {proc.returncode}")
@@ -98,6 +98,12 @@ class ValeTest(unittest.TestCase):
 
     def test_if(self) -> None:
         self.compile_and_execute_and_expect_return_code("if.vale", 42)
+
+    def test_mutlocal(self) -> None:
+        self.compile_and_execute_and_expect_return_code("mutlocal.vale", 42)
+
+    # def test_while(self) -> None:
+    #     self.compile_and_execute_and_expect_return_code("while.vale", 42)
 
 
 if __name__ == '__main__':
