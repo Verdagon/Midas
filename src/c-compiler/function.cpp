@@ -30,7 +30,7 @@ LLVMValueRef makeNever() {
   // We arbitrarily use a zero-len array of i57 here because it's zero sized and
   // very unlikely to be used anywhere else.
   // We could use an empty struct instead, but this'll do.
-  return LLVMConstArray(LLVMIntType(57), empty, 0);
+  return LLVMConstArray(LLVMIntType(NEVER_INT_BITS), empty, 0);
 }
 
 LLVMValueRef translateExternCall(

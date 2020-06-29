@@ -10,8 +10,7 @@ LLVMTypeRef translateType(GlobalState* globalState, Reference* referenceM) {
     assert(referenceM->ownership == Ownership::SHARE);
     return LLVMInt1Type();
   } else if (dynamic_cast<Never*>(referenceM->referend) != nullptr) {
-    // TODO static const that 57
-    return LLVMArrayType(LLVMIntType(57), 0);
+    return LLVMArrayType(LLVMIntType(NEVER_INT_BITS), 0);
   } else if (auto structReferend =
       dynamic_cast<StructReferend*>(referenceM->referend)) {
 
