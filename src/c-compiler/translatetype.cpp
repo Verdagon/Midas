@@ -9,22 +9,27 @@ LLVMTypeRef translateType(GlobalState* globalState, Reference* referenceM) {
   } else if (dynamic_cast<Bool*>(referenceM->referend) != nullptr) {
     assert(referenceM->ownership == Ownership::SHARE);
     return LLVMInt1Type();
-  } else if (auto structReferend = dynamic_cast<StructReferend*>(referenceM->referend)) {
-//    auto structLIter = globalState->structs.find(structReferend->fullName->name);
-//    assert(structLIter != globalState->structs.end());
-//    auto structL = structLIter->second;
-//    return structL;
+  } else if (auto structReferend =
+      dynamic_cast<StructReferend*>(referenceM->referend)) {
 
-    auto structMIter = globalState->program->structs.find(structReferend->fullName->name);
-    assert(structMIter != globalState->program->structs.end());
-    auto structM = structMIter->second;
+    bool inliine = true;//referenceM->location == INLINE; TODO
 
-    std::vector<LLVMTypeRef> memberTypesL;
-    for (auto memberM : structM->members) {
-      memberTypesL.push_back(translateType(globalState, memberM->type));
+    if (inliine) {
+      auto structM = globalState->program->getStruct(structReferend->fullName);
+
+      std::vector<LLVMTypeRef> memberTypesL;
+      for (auto memberM : structM->members) {
+        memberTypesL.push_back(translateType(globalState, memberM->type));
+      }
+      auto anonymousType =
+          LLVMStructType(&memberTypesL[0], memberTypesL.size(),false);
+      return anonymousType;
+    } else {
+      auto structLIter = globalState->structs.find(structReferend->fullName->name);
+      assert(structLIter != globalState->structs.end());
+      auto structL = structLIter->second;
+      return structL;
     }
-    auto anonymousType = LLVMStructType(&memberTypesL[0], memberTypesL.size(), false);
-    return anonymousType;
   } else {
     std::cerr << "Unimplemented type: " << typeid(*referenceM->referend).name() << std::endl;
     assert(false);

@@ -9,18 +9,6 @@
 #include "instructions.h"
 #include "globalstate.h"
 
-//class FunctionState {
-//public:
-//  LLVMValueRef containingFunc;
-//  std::unordered_map<int, LLVMValueRef> localAddrByLocalId;
-//  int nextBlockNumber = 1;
-//
-//  FunctionState(
-//      LLVMValueRef containingFunc_,
-//      LLVMBuilderRef builder_) :
-//      containingFunc(containingFunc_) {}
-//};
-
 void declareStruct(
     GlobalState* globalState,
     StructDefinition* structM);

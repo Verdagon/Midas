@@ -31,6 +31,13 @@ class Function;
 class Prototype;
 class Name;
 
+class Name {
+public:
+  std::string name;
+
+  Name(const std::string& name_) : name(name_) {}
+};
+
 class Program {
 public:
     std::unordered_map<std::string, InterfaceDefinition*> interfaces;
@@ -52,6 +59,13 @@ public:
         emptyPackStructRef(emptyPackStructRef_),
         externs(move(externs_)),
         functions(move(functions_)) {}
+
+
+  StructDefinition* getStruct(Name* name) {
+    auto structIter = structs.find(name->name);
+    assert(structIter != structs.end());
+    return structIter->second;
+  }
 };
 
 class StructDefinition {
@@ -134,13 +148,6 @@ public:
         name(name_),
         params(std::move(params_)),
         returnType(returnType_) {}
-};
-
-class Name {
-public:
-    std::string name;
-
-    Name(const std::string& name_) : name(name_) {}
 };
 
 #endif

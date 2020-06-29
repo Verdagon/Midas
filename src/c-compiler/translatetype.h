@@ -9,6 +9,7 @@
 
 LLVMTypeRef translateType(GlobalState* globalState, Reference* referenceM);
 
-std::vector<LLVMTypeRef> translateTypes(GlobalState* globalState, std::vector<Reference*> referencesM);
+std::vector<LLVMTypeRef> translateTypes(
+    GlobalState* globalState, std::vector<Reference*> referencesM);
 
 #endif
