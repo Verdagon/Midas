@@ -240,7 +240,7 @@ LLVMValueRef translateExpression(
         assert(false); // TODO: make a new mutable struct, with a call to malloc
         break;
       case Ownership::SHARE: {
-        bool inliine = true;//newStruct->resultType->location == INLINE;
+        bool inliine = true;//newStruct->resultType->location == INLINE; TODO
 
         if (inliine) {
           // To pass around structs by value (IOW inlined), we can use
