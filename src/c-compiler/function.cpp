@@ -225,6 +225,9 @@ LLVMValueRef translateExpression(
         auto exprs = translateExpressions(globalState, functionState, builder, newStruct->sourceExprs);
 
         LLVMValueRef structValueBeingInitialized = LLVMGetUndef(structL);
+        LLVMTypeRef ptrtype = LLVMPointerType(structL, 0);
+        structValueBeingInitialized = LLVMBuildBitCast(builder, structValueBeingInitialized, ptrtype, "valuestruct");
+
         for (int i = 0; i < exprs.size(); i++) {
           auto memberName = structM->members[i]->name;
 
