@@ -219,7 +219,8 @@ LLVMValueRef translateExpression(
   } else if (auto argument = dynamic_cast<Argument*>(expr)) {
     return LLVMGetParam(functionState->containingFunc, argument->argumentIndex);
   } else if (auto newStruct = dynamic_cast<NewStruct*>(expr)) {
-    auto structReferend = dynamic_cast<StructReferend*>(newStruct->resultType->referend);
+    auto structReferend =
+        dynamic_cast<StructReferend*>(newStruct->resultType->referend);
     assert(structReferend);
     auto structL = globalState->getStruct(structReferend->fullName);
 
@@ -228,7 +229,9 @@ LLVMValueRef translateExpression(
     assert(structMIter != globalState->program->structs.end());
     auto structM = structMIter->second;
 
-    auto memberExprs = translateExpressions(globalState, functionState, builder, newStruct->sourceExprs);
+    auto memberExprs =
+        translateExpressions(
+            globalState, functionState, builder, newStruct->sourceExprs);
 
     switch (newStruct->resultType->ownership) {
       case Ownership::OWN:
@@ -238,29 +241,38 @@ LLVMValueRef translateExpression(
         bool inliine = true;//newStruct->resultType->location == INLINE;
 
         if (inliine) {
-          // To pass around structs by value (IOW inlined), we can use insertvalue.
-          // Unfortunately, it doesn't seem to like it when we give it a struct from
-          // LLVMStructCreateNamed, which our structs are. It seems to only like
-          // these... anonymous structs? which come from LLVMStructType.
-          // So here we make an anonymous struct, instead of using `structL`.
-          // We could perhaps do this once at the beginning of the program, in the
-          // same place we call LLVMStructCreateNamed.
+          // To pass around structs by value (IOW inlined), we can use
+          // insertvalue. Unfortunately, it doesn't seem to like it when we give
+          // it a struct from LLVMStructCreateNamed, which our structs are. It
+          // seems to only like these... anonymous structs? which come from
+          // LLVMStructType. So here we make an anonymous struct, instead of
+          // using `structL`.
+          // We could perhaps do this once at the beginning of the program, in
+          // the same place we call LLVMStructCreateNamed.
           std::vector<LLVMTypeRef> memberTypesL;
           for (auto memberM : structM->members) {
             memberTypesL.push_back(translateType(globalState, memberM->type));
           }
-          auto anonymousType = LLVMStructType(&memberTypesL[0], memberTypesL.size(), false);
+          auto anonymousType =
+              LLVMStructType(
+                  &memberTypesL[0], memberTypesL.size(), false);
 
-          // We always startw ith an undef, and then fill in its fields one at a time.
-          LLVMValueRef structValueBeingInitialized = LLVMGetUndef(anonymousType);
+          // We always start with an undef, and then fill in its fields one at a
+          // time.
+          LLVMValueRef structValueBeingInitialized =
+              LLVMGetUndef(anonymousType);
           for (int i = 0; i < memberExprs.size(); i++) {
             auto memberName = structM->members[i]->name;
-            // Every time we fill in a field, it actually makes a new entire struct value,
-            // and gives us a LLVMValueRef for the new value.
+            // Every time we fill in a field, it actually makes a new entire
+            // struct value, and gives us a LLVMValueRef for the new value.
             // So, `structValueBeingInitialized` contains the latest one.
             structValueBeingInitialized =
                 LLVMBuildInsertValue(
-                    builder, structValueBeingInitialized, memberExprs[i], i, memberName.c_str());
+                    builder,
+                    structValueBeingInitialized,
+                    memberExprs[i],
+                    i,
+                    memberName.c_str());
           }
           return structValueBeingInitialized;
         } else {
@@ -270,7 +282,8 @@ LLVMValueRef translateExpression(
         }
       }
       case Ownership::BORROW:
-        // Wouldn't make sense to make a new struct and expect a borrow reference out of it.
+        // Wouldn't make sense to make a new struct and expect a borrow
+        // reference out of it.
       // case Ownership::WEAK:
       default:
         assert(false);
@@ -282,22 +295,24 @@ LLVMValueRef translateExpression(
     assert(!exprs.empty());
     return exprs.back();
   } else if (auto iff = dynamic_cast<If*>(expr)) {
-    // First, we compile the condition expression, into wherever we're currently building. It's
-    // not really part of this mess, but we do use the resulting bit of it in the indirect-branch
-    // instruction.
+    // First, we compile the condition expression, into wherever we're currently
+    // building. It's not really part of this mess, but we do use the resulting
+    // bit of it in the indirect-branch instruction.
     auto conditionExpr =
         translateExpression(
             globalState, functionState, builder, iff->conditionExpr);
 
-    // We already are in the "current" block (which is what `builder` is pointing at currently),
-    // but we're about to make three more: "then", "else", and "afterward".
+    // We already are in the "current" block (which is what `builder` is
+    // pointing at currently), but we're about to make three more: "then",
+    // "else", and "afterward".
     //              .-----> then -----.
     //  current ---:                   :---> afterward
     //              '-----> else -----'
     // Right now, the `builder` is pointed at the "current" block.
-    // After we're done, we'll change it to point at the "afterward" block, so that
-    // subsequent instructions (after the If) can keep using the same builder, but they'll
-    // be adding to the "afterward" block we're making here.
+    // After we're done, we'll change it to point at the "afterward" block, so
+    // that subsequent instructions (after the If) can keep using the same
+    // builder, but they'll be adding to the "afterward" block we're making
+    // here.
 
     LLVMBasicBlockRef thenBlockL =
         LLVMAppendBasicBlock(
