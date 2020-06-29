@@ -15,10 +15,18 @@ public:
   std::unordered_map<int, LLVMValueRef> localAddrByLocalId;
   int nextBlockNumber = 1;
 
-  FunctionState(
-      LLVMValueRef containingFunc_,
-      LLVMBuilderRef builder_) :
+  FunctionState(LLVMValueRef containingFunc_) :
       containingFunc(containingFunc_) {}
+
+  LLVMValueRef getLocalAddr(const VariableId& varId) {
+    auto localAddrIter = localAddrByLocalId.find(varId.number);
+    assert(localAddrIter != localAddrByLocalId.end());
+    return localAddrIter->second;
+  }
+
+  std::string nextBlockName() {
+    return std::string("block") + std::to_string(nextBlockNumber++);
+  }
 };
 
 void translateFunction(

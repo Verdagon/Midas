@@ -17,10 +17,7 @@ void declareStruct(
 void translateStruct(
     GlobalState* globalState,
     StructDefinition* structM) {
-
-  auto structIter = globalState->structs.find(structM->name->name);
-  assert(structIter != globalState->structs.end());
-  LLVMTypeRef structL = structIter->second;
+  LLVMTypeRef structL = globalState->getStruct(structM->name);
 
   std::vector<LLVMTypeRef> memberTypesL(structM->members.size());
   for (auto member : structM->members) {

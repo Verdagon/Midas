@@ -102,7 +102,8 @@ class Edge {
 public:
     Name* structName;
     Name* interfaceName;
-    std::vector<std::pair<Prototype*, Prototype*>> structPrototypesByInterfacePrototype;
+    std::vector<std::pair<Prototype*, Prototype*>>
+        structPrototypesByInterfacePrototype;
 };
 
 class Function {

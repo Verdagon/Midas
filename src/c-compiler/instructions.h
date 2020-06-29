@@ -143,16 +143,12 @@ class StructToInterfaceUpcast : public Expression {
 public:
   Expression* sourceExpr;
   InterfaceRef* targetInterfaceRef;
-
-//  def resultRef = Reference(sourceExpr.expectedType.ownership, targetInterfaceRef)
 };
 
 class InterfaceToInterfaceUpcast : public Expression {
 public:
   Expression* sourceExpr;
   InterfaceRef* targetInterfaceRef;
-
-//  def resultRef = Reference(sourceExpr.expectedType.ownership, targetInterfaceRef)
 };
 
 class Unreachable : public Expression {
@@ -417,11 +413,11 @@ public:
 class VariableId {
 public:
     int number;
-    std::string* maybeName;
+    std::string maybeName;
 
     VariableId(
         int number_,
-    std::string* maybeName_) :
+    std::string maybeName_) :
     number(number_),
     maybeName(maybeName_) {}
 };

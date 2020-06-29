@@ -27,51 +27,6 @@
 // for convenience
 using json = nlohmann::json;
 
-// Use provided options (triple, etc.) to creation a machine
-LLVMTargetMachineRef genlCreateMachine() {
-  char *err;
-  LLVMTargetRef target;
-  LLVMCodeGenOptLevel opt_level;
-  LLVMRelocMode reloc;
-  LLVMTargetMachineRef machine;
-
-//  LLVMInitializeAllTargetInfos();
-//  LLVMInitializeAllTargetMCs();
-//  LLVMInitializeAllTargets();
-//  LLVMInitializeAllAsmPrinters();
-//  LLVMInitializeAllAsmParsers();
-
-  LLVMInitializeX86TargetInfo();
-  LLVMInitializeX86TargetMC();
-  LLVMInitializeX86Target();
-  LLVMInitializeX86AsmPrinter();
-  LLVMInitializeX86AsmParser();
-
-  // Find target for the specified triple
-  auto triple = LLVMGetDefaultTargetTriple();
-  if (LLVMGetTargetFromTriple(triple, &target, &err) != 0) {
-    std::cerr << "Could not create target: " << err << std::endl;
-    LLVMDisposeMessage(err);
-    return NULL;
-  }
-
-  bool release = true;
-  bool pic = true;
-  bool library = true;
-
-  // Create a specific target machine
-  opt_level = release? LLVMCodeGenLevelAggressive : LLVMCodeGenLevelNone;
-  reloc = (pic || library)? LLVMRelocPIC : LLVMRelocDefault;
-  auto cpu = "generic";
-  auto features = "";
-  if (!(machine = LLVMCreateTargetMachine(target, triple, cpu, features, opt_level, reloc, LLVMCodeModelDefault))) {
-    std::cerr << "Could not create target machine" << std::endl;
-    return NULL;
-  }
-
-  return machine;
-}
-
 void compileValeCode(LLVMModuleRef mod, const char* filename) {
   std::ifstream instream(filename);
   std::string str(std::istreambuf_iterator<char>{instream}, {});
@@ -123,13 +78,17 @@ void compileValeCode(LLVMModuleRef mod, const char* filename) {
       LLVMInt64Type(),
       LLVMPointerType(LLVMPointerType(LLVMInt8Type(), 0), 0)
   };
-  LLVMTypeRef functionTypeL = LLVMFunctionType(LLVMInt64Type(), paramTypesL.data(), paramTypesL.size(), 0);
-  LLVMValueRef entryFunctionL = LLVMAddFunction(mod, "main", functionTypeL);
+  LLVMTypeRef functionTypeL =
+      LLVMFunctionType(
+          LLVMInt64Type(), paramTypesL.data(), paramTypesL.size(), 0);
+  LLVMValueRef entryFunctionL =
+      LLVMAddFunction(mod, "main", functionTypeL);
   LLVMSetLinkage(entryFunctionL, LLVMDLLExportLinkage);
   LLVMSetDLLStorageClass(entryFunctionL, LLVMDLLExportStorageClass);
   LLVMSetFunctionCallConv(entryFunctionL, LLVMX86StdcallCallConv);
   LLVMBuilderRef builder = LLVMCreateBuilder();
-  LLVMBasicBlockRef blockL = LLVMAppendBasicBlock(entryFunctionL, "thebestblock");
+  LLVMBasicBlockRef blockL =
+      LLVMAppendBasicBlock(entryFunctionL, "thebestblock");
   LLVMPositionBuilderAtEnd(builder, blockL);
   LLVMValueRef emptyValues[1] = {};
   LLVMBuildRet(
@@ -143,30 +102,4 @@ void compileValeCode(LLVMModuleRef mod, const char* filename) {
   char *error = NULL;
   LLVMVerifyModule(mod, LLVMAbortProcessAction, &error);
   LLVMDisposeMessage(error);
-  /*
-  LLVMExecutionEngineRef engine;
-  error = NULL;
-//    LLVMLinkInJIT();
-  LLVMLinkInInterpreter();
-  LLVMInitializeNativeTarget();
-  if (LLVMCreateExecutionEngineForModule(&engine, mod, &error) != 0) {
-      fprintf(stderr, "failed to create execution engine\n");
-      abort();
-  }
-  if (error) {
-      fprintf(stderr, "error: %s\n", error);
-      LLVMDisposeMessage(error);
-      exit(EXIT_FAILURE);
-  }
-
-  int numArgs = 2;
-  LLVMGenericValueRef args[] = {
-      LLVMCreateGenericValueOfInt(LLVMInt64Type(), 0, 0),
-      LLVMCreateGenericValueOfInt(LLVMInt64Type(), 0, 0),
-  };
-
-  LLVMGenericValueRef res = LLVMRunFunction(engine, entryFunctionL, numArgs, args);
-
-  printf("%d\n", (int)LLVMGenericValueToInt(res, 0));
-  */
 }
