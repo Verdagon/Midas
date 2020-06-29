@@ -21,11 +21,11 @@ void translateStruct(
     StructDefinition* structM) {
   LLVMTypeRef structL = globalState->getStruct(structM->name);
 
-  int numMembers = structM->members.size();
   std::vector<LLVMTypeRef> memberTypesL;
-//  for (auto member : structM->members) {
-//    memberTypesL.push_back(translateType(globalState, member->type));
-//  }
+  memberTypesL.reserve(structM->members.size());
+  for (int i = 0; i < structM->members.size(); i++) {
+    memberTypesL.push_back(translateType(globalState, structM->members[i]->type));
+  }
   LLVMStructSetBody(
       structL, &memberTypesL[0], memberTypesL.size(), false);
 }
