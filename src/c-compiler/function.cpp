@@ -213,29 +213,46 @@ LLVMValueRef translateExpression(
     assert(structMIter != globalState->program->structs.end());
     auto structM = structMIter->second;
 
+    auto memberExprs = translateExpressions(globalState, functionState, builder, newStruct->sourceExprs);
+
     switch (newStruct->resultType->ownership) {
       case Ownership::OWN:
         assert(false); // TODO: make a new mutable struct, with a call to malloc
         break;
       case Ownership::SHARE: {
-        // TODO: make ref-counted immutable structs. These here are just inline value ones.
-        // We do want small structs (<=32b) to be inline values, but the larger ones should
-        // be able to be ref counted.
+        bool inliine = true;//newStruct->resultType->location == INLINE;
 
-        auto exprs = translateExpressions(globalState, functionState, builder, newStruct->sourceExprs);
+        if (inliine) {
+          // To pass around structs by value (IOW inlined), we can use insertvalue.
+          // Unfortunately, it doesn't seem to like it when we give it a struct from
+          // LLVMStructCreateNamed, which our structs are. It seems to only like
+          // these... anonymous structs? which come from LLVMStructType.
+          // So here we make an anonymous struct, instead of using `structL`.
+          // We could perhaps do this once at the beginning of the program, in the
+          // same place we call LLVMStructCreateNamed.
+          std::vector<LLVMTypeRef> memberTypesL;
+          for (auto memberM : structM->members) {
+            memberTypesL.push_back(translateType(globalState, memberM->type));
+          }
+          auto anonymousType = LLVMStructType(&memberTypesL[0], memberTypesL.size(), false);
 
-        LLVMValueRef structValueBeingInitialized = LLVMGetUndef(structL);
-        LLVMTypeRef ptrtype = LLVMPointerType(structL, 0);
-        structValueBeingInitialized = LLVMBuildBitCast(builder, structValueBeingInitialized, ptrtype, "valuestruct");
-
-        for (int i = 0; i < exprs.size(); i++) {
-          auto memberName = structM->members[i]->name;
-
-          structValueBeingInitialized =
-              LLVMBuildInsertValue(
-                  builder, structValueBeingInitialized, exprs[i], i, memberName.c_str());
+          // We always startw ith an undef, and then fill in its fields one at a time.
+          LLVMValueRef structValueBeingInitialized = LLVMGetUndef(anonymousType);
+          for (int i = 0; i < memberExprs.size(); i++) {
+            auto memberName = structM->members[i]->name;
+            // Every time we fill in a field, it actually makes a new entire struct value,
+            // and gives us a LLVMValueRef for the new value.
+            // So, `structValueBeingInitialized` contains the latest one.
+            structValueBeingInitialized =
+                LLVMBuildInsertValue(
+                    builder, structValueBeingInitialized, memberExprs[i], i, memberName.c_str());
+          }
+          return structValueBeingInitialized;
+        } else {
+          // TODO: implement non-inlined immutable structs
+          assert(false);
+          return nullptr;
         }
-        return structValueBeingInitialized;
       }
       case Ownership::BORROW:
         // Wouldn't make sense to make a new struct and expect a borrow reference out of it.
