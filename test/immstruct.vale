@@ -4,6 +4,6 @@ struct Vec3i imm {
   z Int;
 }
 
-fn main() {
-  = Vec3i(3, 4, 5).z;
+fn main(x Vec3i) {
+  = 7;
 }

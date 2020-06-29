@@ -59,7 +59,9 @@ void compileValeCode(LLVMModuleRef mod, const char* filename) {
     auto name = p.first;
     auto function = p.second;
     LLVMValueRef entryFunctionL = declareFunction(&globalState, mod, function);
-    if (function->prototype->name->name == "F(\"main\")") {
+//    if (function->prototype->name->name == "F(\"main\")") {
+    // See if its just called main, dont care about args.
+    if (function->prototype->name->name.rfind("F(\"main\"", 0) == 0) {
       mainL = entryFunctionL;
     }
   }
@@ -95,7 +97,7 @@ void compileValeCode(LLVMModuleRef mod, const char* filename) {
 //      LLVMConstInt(LLVMInt64Type(), 42, false));
       LLVMBuildCall(builder, mainL, emptyValues, 0, "valeMainCall"));
 
-  char *error = NULL;
-  LLVMVerifyModule(mod, LLVMAbortProcessAction, &error);
-  LLVMDisposeMessage(error);
+//  char *error = NULL;
+//  LLVMVerifyModule(mod, LLVMAbortProcessAction, &error);
+//  LLVMDisposeMessage(error);
 }

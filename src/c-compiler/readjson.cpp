@@ -59,6 +59,8 @@ Referend* readReferend(const json& referend) {
     return new Void();
   } else if (referend[""] == "StructId") {
     return readStructReferend(referend);
+  } else if (referend[""] == "Never") {
+    return new Never();
   } else {
     std::cerr << "Unrecognized referend: " << referend[""] << std::endl;
     assert(false);

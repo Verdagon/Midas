@@ -21,6 +21,18 @@ LLVMValueRef translateExternCall(
     ExternCall* expr);
 
 
+// A "Never" is something that should never be read.
+// This is useful in a lot of situations, for example:
+// - The return type of Panic()
+// - The result of the Discard node
+LLVMValueRef makeNever() {
+  LLVMValueRef empty[1] = {};
+  // We arbitrarily use a zero-len array of i57 here because it's zero sized and
+  // very unlikely to be used anywhere else.
+  // We could use an empty struct instead, but this'll do.
+  return LLVMConstArray(LLVMIntType(57), empty, 0);
+}
+
 LLVMValueRef translateExternCall(
     GlobalState* globalState,
     FunctionState* functionState,
@@ -40,8 +52,7 @@ LLVMValueRef translateExternCall(
     // VivemExterns.addFloatFloat
     assert(false);
   } else if (name == "F(\"panic\")") {
-    // VivemExterns.panic
-    assert(false);
+    return makeNever();
   } else if (name == "F(\"__multiplyIntInt\",[],[R(*,i),R(*,i)])") {
     assert(call->argExprs.size() == 2);
     return LLVMBuildMul(
@@ -128,18 +139,6 @@ LLVMValueRef translateCall(
       builder, funcL, argExprsL.data(), argExprsL.size(), "");
 }
 
-// A "Never" is something that should never be read.
-// This is useful in a lot of situations, for example:
-// - The return type of Panic()
-// - The result of the Discard node
-LLVMValueRef makeNever() {
-  LLVMValueRef empty[1] = {};
-  // We arbitrarily use a zero-len array of i57 here because it's zero sized and
-  // very unlikely to be used anywhere else.
-  // We could use an empty struct instead, but this'll do.
-  return LLVMConstArray(LLVMIntType(57), empty, 0);
-}
-
 LLVMValueRef translateExpression(
     GlobalState* globalState,
     FunctionState* functionState,
@@ -165,10 +164,20 @@ LLVMValueRef translateExpression(
     auto inner =
         translateExpression(
             globalState, functionState, builder, discard->sourceExpr);
-    if (dynamic_cast<Int*>(discard->sourceResultType->referend) ||
-        dynamic_cast<Bool*>(discard->sourceResultType->referend) ||
-        dynamic_cast<Float*>(discard->sourceResultType->referend)) {
+    auto sourceRnd = discard->sourceResultType->referend;
+    if (dynamic_cast<Int*>(sourceRnd) ||
+        dynamic_cast<Bool*>(sourceRnd) ||
+        dynamic_cast<Float*>(sourceRnd)) {
       // Do nothing for these, they're always inlined and copied.
+    } else if (auto structRnd = dynamic_cast<StructReferend*>(sourceRnd)) {
+      auto structM = globalState->program->getStruct(structRnd->fullName);
+
+      bool inliine = true;//discard->sourceResultType->location == INLINE; TODO
+      if (inliine) {
+        // Do nothing, we can just let inline structs disappear
+      } else {
+        assert(false); // TODO implement
+      }
     } else {
       std::cerr << "Unimplemented type in Discard: "
           << typeid(*discard->sourceResultType->referend).name() << std::endl;
@@ -243,21 +252,22 @@ LLVMValueRef translateExpression(
         bool inliine = true;//newStruct->resultType->location == INLINE; TODO
 
         if (inliine) {
-          // To pass around structs by value (IOW inlined), we can use
-          // insertvalue. Unfortunately, it doesn't seem to like it when we give
-          // it a struct from LLVMStructCreateNamed, which our structs are. It
-          // seems to only like these... anonymous structs? which come from
-          // LLVMStructType. So here we make an anonymous struct, instead of
-          // using `structL`.
-          // We could perhaps do this once at the beginning of the program, in
-          // the same place we call LLVMStructCreateNamed.
-          std::vector<LLVMTypeRef> memberTypesL;
-          for (auto memberM : structM->members) {
-            memberTypesL.push_back(translateType(globalState, memberM->type));
-          }
-          auto anonymousType =
-              LLVMStructType(
-                  &memberTypesL[0], memberTypesL.size(), false);
+//          // To pass around structs by value (IOW inlined), we can use
+//          // insertvalue. Unfortunately, it doesn't seem to like it when we give
+//          // it a struct from LLVMStructCreateNamed, which our structs are. It
+//          // seems to only like these... anonymous structs? which come from
+//          // LLVMStructType. So here we make an anonymous struct, instead of
+//          // using `structL`.
+//          // We could perhaps do this once at the beginning of the program, in
+//          // the same place we call LLVMStructCreateNamed.
+//          std::vector<LLVMTypeRef> memberTypesL;
+//          for (auto memberM : structM->members) {
+//            memberTypesL.push_back(translateType(globalState, memberM->type));
+//          }
+//          auto anonymousType =
+//              LLVMStructType(
+//                  &memberTypesL[0], memberTypesL.size(), false);
+          auto anonymousType = structL;
 
           // We always start with an undef, and then fill in its fields one at a
           // time.
