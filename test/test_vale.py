@@ -38,7 +38,7 @@ class ValeTest(unittest.TestCase):
               o_files_dir: str) -> subprocess.CompletedProcess:
         assert self.GENPATH
         return procrun(
-            [f"../{self.GENPATH}/valec", "--output-dir", o_files_dir, vir_file])
+            [f"../{self.GENPATH}/valec", "--llvmir", "--output-dir", o_files_dir, vir_file])
 
     def clang(self, o_files: List[str],
               exe_file: str) -> subprocess.CompletedProcess:

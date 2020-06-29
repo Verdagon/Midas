@@ -156,7 +156,7 @@ void genMod(GenState *gen, ModuleNode *mod) {
     }
 
     // Serialize the LLVM IR, if requested
-    if (gen->opt->print_llvmir && LLVMPrintModuleToFile(gen->module, fileMakePath(gen->opt->output, gen->opt->srcname, "preir"), &err) != 0) {
+    if (gen->opt->print_llvmir && LLVMPrintModuleToFile(gen->module, fileMakePath(gen->opt->output, gen->opt->srcname, "ll"), &err) != 0) {
         errorMsg(ErrorGenErr, "Could not emit pre-ir file: %s", err);
         LLVMDisposeMessage(err);
     }
@@ -187,7 +187,8 @@ void genMod(GenState *gen, ModuleNode *mod) {
             gen->opt->print_asm? fileMakePath(gen->opt->output, gen->opt->srcname, gen->opt->wasm? "wat" : asmext) : NULL,
             gen->module, gen->opt->triple, gen->machine);
 
-    LLVMDisposeModule(gen->module);
+
+  LLVMDisposeModule(gen->module);
     // LLVMContextDispose(gen.context);  // Only need if we created a new context
 }
 

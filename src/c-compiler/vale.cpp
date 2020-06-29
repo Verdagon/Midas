@@ -46,7 +46,6 @@ void compileValeCode(LLVMModuleRef mod, const char* filename) {
 
   // eventually, would declare interfaces here
 
-
   for (auto p : program->structs) {
     auto name = p.first;
     auto structL = p.second;
@@ -95,9 +94,6 @@ void compileValeCode(LLVMModuleRef mod, const char* filename) {
       builder,
 //      LLVMConstInt(LLVMInt64Type(), 42, false));
       LLVMBuildCall(builder, mainL, emptyValues, 0, "valeMainCall"));
-
-  std::cout << "Printing stuff!" << std::endl;
-  std::cout << LLVMPrintModuleToString(mod) << std::endl;
 
   char *error = NULL;
   LLVMVerifyModule(mod, LLVMAbortProcessAction, &error);
