@@ -334,7 +334,12 @@ LLVMValueRef translateExpression(
     return makeNever();
   } else if (auto memberLoad = dynamic_cast<MemberLoad*>(expr)) {
     auto structExpr = translateExpression(globalState, functionState, builder, memberLoad->structExpr);
-    auto ptrToMemberInStruct = LLVMBuildStructGEP(builder, structExpr, memberLoad->memberIndex, memberLoad->memberName.c_str());
+    LLVMValueRef indicesForGetElementPtr[2] = {
+        LLVMConstInt(LLVMInt64Type(), 0, false),
+        LLVMConstInt(LLVMInt64Type(), memberLoad->memberIndex, false),
+    };
+    int numIndicesForGetElementPtr = 2;
+    auto ptrToMemberInStruct = LLVMBuildGEP(builder, structExpr, indicesForGetElementPtr, numIndicesForGetElementPtr, memberLoad->memberName.c_str());
     return LLVMBuildLoad(builder, ptrToMemberInStruct, "");
   } else {
     std::string name = typeid(*expr).name();
