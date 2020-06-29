@@ -41,6 +41,12 @@ Name* readName(const json& name) {
       name.get<std::string>());
 }
 
+StructReferend* readStructReferend(const json& referend) {
+  assert(referend[""] == "StructId");
+  return new StructReferend(
+      readName(referend["name"]));
+}
+
 Referend* readReferend(const json& referend) {
   assert(referend.is_object());
   if (referend[""] == "Int") {
@@ -52,8 +58,7 @@ Referend* readReferend(const json& referend) {
   } else if (referend[""] == "Void") {
     return new Void();
   } else if (referend[""] == "StructId") {
-    return new StructReferend(
-        readName(referend["name"]));
+    return readStructReferend(referend);
   } else {
     std::cerr << "Unrecognized referend: " << referend[""] << std::endl;
     assert(false);
@@ -194,6 +199,7 @@ Expression* readExpression(const json& expression) {
   } else if (type == "MemberLoad") {
     return new MemberLoad(
         readExpression(expression["structExpr"]),
+        readStructReferend(expression["structId"]),
         expression["memberIndex"],
         readOwnership(expression["targetOwnership"]),
         readReference(expression["expectedMemberType"]),

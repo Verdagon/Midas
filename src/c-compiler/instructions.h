@@ -203,6 +203,7 @@ public:
 class MemberLoad : public Expression {
 public:
   Expression* structExpr;
+  StructReferend* structId;
   int memberIndex;
   Ownership targetOwnership;
   Reference* expectedMemberType;
@@ -211,12 +212,14 @@ public:
 
   MemberLoad(
       Expression* structExpr_,
+      StructReferend* structId_,
       int memberIndex_,
       Ownership targetOwnership_,
       Reference* expectedMemberType_,
       Reference* expectedResultType_,
       std::string memberName_) :
     structExpr(structExpr_),
+    structId(structId_),
     memberIndex(memberIndex_),
     targetOwnership(targetOwnership_),
     expectedMemberType(expectedMemberType_),

@@ -208,6 +208,11 @@ LLVMValueRef translateExpression(
     assert(structIter != globalState->structs.end());
     auto structL = structIter->second;
 
+    auto structName = structReferend->fullName;
+    auto structMIter = globalState->program->structs.find(structName->name);
+    assert(structMIter != globalState->program->structs.end());
+    auto structM = structMIter->second;
+
     switch (newStruct->resultType->ownership) {
       case Ownership::OWN:
         assert(false); // TODO: make a new mutable struct, with a call to malloc
@@ -221,9 +226,11 @@ LLVMValueRef translateExpression(
 
         LLVMValueRef structValueBeingInitialized = LLVMGetUndef(structL);
         for (int i = 0; i < exprs.size(); i++) {
+          auto memberName = structM->members[i]->name;
+
           structValueBeingInitialized =
               LLVMBuildInsertValue(
-                  builder, structValueBeingInitialized, exprs[i], i, "");
+                  builder, structValueBeingInitialized, exprs[i], i, memberName.c_str());
         }
         return structValueBeingInitialized;
       }
@@ -351,11 +358,17 @@ LLVMValueRef translateExpression(
 
 //    return LLVMBuildAdd(builder, LLVMConstInt(LLVMInt64Type(), 1337, false), LLVMConstInt(LLVMInt64Type(), 1448, false), "");
 
+    auto structName = memberLoad->structId->fullName->name;
+    auto structMIter = globalState->program->structs.find(structName);
+    assert(structMIter != globalState->program->structs.end());
+    auto structM = structMIter->second;
+    auto memberName = structM->members[memberLoad->memberIndex]->name;
+
     return LLVMBuildExtractValue(
         builder,
         structExpr,
         memberLoad->memberIndex,
-        "");
+        memberName.c_str());
   } else {
     std::string name = typeid(*expr).name();
     std::cout << name << std::endl;

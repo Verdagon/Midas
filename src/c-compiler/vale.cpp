@@ -81,6 +81,7 @@ void compileValeCode(LLVMModuleRef mod, const char* filename) {
   auto program = readProgram(programJ);
 
   GlobalState globalState;
+  globalState.program = program;
 
   for (auto p : program->structs) {
     auto name = p.first;

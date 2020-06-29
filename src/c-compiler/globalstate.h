@@ -10,6 +10,7 @@
 
 class GlobalState {
 public:
+  Program* program;
   std::unordered_map<std::string, LLVMTypeRef> structs;
   std::unordered_map<std::string, LLVMValueRef> functions;
 };
