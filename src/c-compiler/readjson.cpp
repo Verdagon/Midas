@@ -94,7 +94,7 @@ VariableId* readVariableId(const json& local) {
   assert(local[""] == "VariableId");
   return new VariableId(
       local["number"],
-      nullptr);
+      "");
 }
 
 Local* readLocal(const json& local) {
