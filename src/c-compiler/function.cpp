@@ -243,26 +243,26 @@ LLVMValueRef translateExpression(
         bool inliine = true;//newStruct->resultType->location == INLINE; TODO
 
         if (inliine) {
-          // To pass around structs by value (IOW inlined), we can use
-          // insertvalue. Unfortunately, it doesn't seem to like it when we give
-          // it a struct from LLVMStructCreateNamed, which our structs are. It
-          // seems to only like these... anonymous structs? which come from
-          // LLVMStructType. So here we make an anonymous struct, instead of
-          // using `structL`.
-          // We could perhaps do this once at the beginning of the program, in
-          // the same place we call LLVMStructCreateNamed.
-          std::vector<LLVMTypeRef> memberTypesL;
-          for (auto memberM : structM->members) {
-            memberTypesL.push_back(translateType(globalState, memberM->type));
-          }
-          auto anonymousType =
-              LLVMStructType(
-                  &memberTypesL[0], memberTypesL.size(), false);
+//          // To pass around structs by value (IOW inlined), we can use
+//          // insertvalue. Unfortunately, it doesn't seem to like it when we give
+//          // it a struct from LLVMStructCreateNamed, which our structs are. It
+//          // seems to only like these... anonymous structs? which come from
+//          // LLVMStructType. So here we make an anonymous struct, instead of
+//          // using `structL`.
+//          // We could perhaps do this once at the beginning of the program, in
+//          // the same place we call LLVMStructCreateNamed.
+//          std::vector<LLVMTypeRef> memberTypesL;
+//          for (auto memberM : structM->members) {
+//            memberTypesL.push_back(translateType(globalState, memberM->type));
+//          }
+//          auto anonymousType =
+//              LLVMStructType(
+//                  &memberTypesL[0], memberTypesL.size(), false);
 
           // We always start with an undef, and then fill in its fields one at a
           // time.
           LLVMValueRef structValueBeingInitialized =
-              LLVMGetUndef(anonymousType);
+              LLVMGetUndef(structL);
           for (int i = 0; i < memberExprs.size(); i++) {
             auto memberName = structM->members[i]->name;
             // Every time we fill in a field, it actually makes a new entire
