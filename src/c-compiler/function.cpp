@@ -57,8 +57,13 @@ LLVMValueRef translateExternCall(
     // VivemExterns.getch
     assert(false);
   } else if (name == "F(\"__lessThanInt\",[],[R(*,i),R(*,i)])") {
-    // VivemExterns.lessThanInt
-    assert(false);
+    assert(call->argExprs.size() == 2);
+    return LLVMBuildICmp(
+        builder,
+        LLVMIntSLT,
+        translateExpression(globalState, functionState, builder, call->argExprs[0]),
+        translateExpression(globalState, functionState, builder, call->argExprs[1]),
+        "");
   } else if (name == "F(\"__greaterThanOrEqInt\",[],[R(*,i),R(*,i)])") {
     // VivemExterns.greaterThanOrEqInt
     assert(false);
@@ -196,42 +201,141 @@ LLVMValueRef translateExpression(
     return translateExternCall(globalState, functionState, builder, externCall);
   } else if (auto argument = dynamic_cast<Argument*>(expr)) {
     return LLVMGetParam(functionState->containingFunc, argument->argumentIndex);
+  } else if (auto newStruct = dynamic_cast<NewStruct*>(expr)) {
+    auto structReferend = dynamic_cast<StructReferend*>(newStruct->resultType->referend);
+    assert(structReferend);
+    auto structIter = globalState->structs.find(structReferend->fullName->name);
+    assert(structIter != globalState->structs.end());
+    auto structL = structIter->second;
+
+    switch (newStruct->resultType->ownership) {
+      case Ownership::OWN:
+        assert(false); // TODO: make a new mutable struct, with a call to malloc
+        break;
+      case Ownership::SHARE: {
+        // TODO: make ref-counted immutable structs. These here are just inline value ones.
+        // We do want small structs (<=32b) to be inline values, but the larger ones should
+        // be able to be ref counted.
+
+        auto exprs = translateExpressions(globalState, functionState, builder, newStruct->sourceExprs);
+        return LLVMConstNamedStruct(structL, &exprs[0], exprs.size());
+      }
+      case Ownership::BORROW:
+        // Wouldn't make sense to make a new struct and expect a borrow reference out of it.
+      // case Ownership::WEAK:
+      default:
+        assert(false);
+        return nullptr;
+    }
   } else if (auto block = dynamic_cast<Block*>(expr)) {
     auto exprs = translateExpressions(globalState, functionState, builder, block->exprs);
     assert(!exprs.empty());
     return exprs.back();
   } else if (auto iff = dynamic_cast<If*>(expr)) {
+    // First, we compile the condition expression, into wherever we're currently building. It's
+    // not really part of this mess, but we do use the resulting bit of it in the indirect-branch
+    // instruction.
     auto conditionExpr = translateExpression(globalState, functionState, builder, iff->conditionExpr);
+
+    // We already are in the "current" block (which is what `builder` is pointing at currently),
+    // but we're about to make three more: "then", "else", and "afterward".
+    //              .-----> then -----.
+    //  current ---:                   :---> afterward
+    //              '-----> else -----'
+    // Right now, the `builder` is pointed at the "current" block.
+    // After we're done, we'll change it to point at the "afterward" block, so that
+    // subsequent instructions (after the If) can keep using the same builder, but they'll
+    // be adding to the "afterward" block we're making here.
 
     int thenBlockNumber = functionState->nextBlockNumber++;
     auto thenBlockName = std::string("block") + std::to_string(thenBlockNumber);
     LLVMBasicBlockRef thenBlockL = LLVMAppendBasicBlock(functionState->containingFunc, thenBlockName.c_str());
     LLVMBuilderRef thenBlockBuilder = LLVMCreateBuilder();
     LLVMPositionBuilderAtEnd(thenBlockBuilder, thenBlockL);
-    auto thenExpr = translateExpression(globalState, functionState, thenBlockBuilder, iff->thenExpr);
 
     int elseBlockNumber = functionState->nextBlockNumber++;
     auto elseBlockName = std::string("block") + std::to_string(elseBlockNumber);
     LLVMBasicBlockRef elseBlockL = LLVMAppendBasicBlock(functionState->containingFunc, elseBlockName.c_str());
     LLVMBuilderRef elseBlockBuilder = LLVMCreateBuilder();
     LLVMPositionBuilderAtEnd(elseBlockBuilder, elseBlockL);
-    auto elseExpr = translateExpression(globalState, functionState, elseBlockBuilder, iff->elseExpr);
-
-    LLVMBuildCondBr(builder, conditionExpr, thenBlockL, elseBlockL);
 
     int afterwardBlockNumber = functionState->nextBlockNumber++;
     auto afterwardBlockName = std::string("block") + std::to_string(afterwardBlockNumber);
     LLVMBasicBlockRef afterwardBlockL = LLVMAppendBasicBlock(functionState->containingFunc, afterwardBlockName.c_str());
+
+    LLVMBuildCondBr(builder, conditionExpr, thenBlockL, elseBlockL);
+
+    // Now, we fill in the "then" block.
+    auto thenExpr = translateExpression(globalState, functionState, thenBlockBuilder, iff->thenExpr);
+    // Instruction to jump to the afterward block.
     LLVMBuildBr(thenBlockBuilder, afterwardBlockL);
+
+    // Now, we fill in the "else" block.
+    auto elseExpr = translateExpression(globalState, functionState, elseBlockBuilder, iff->elseExpr);
+    // Instruction to jump to the afterward block.
     LLVMBuildBr(elseBlockBuilder, afterwardBlockL);
 
+    // Like explained above, here we're re-pointing the `builder` to point at the afterward block,
+    // so that subsequent instructions (after the If) can keep using the same builder, but they'll
+    // be adding to the "afterward" block we're making here.
     LLVMPositionBuilderAtEnd(builder, afterwardBlockL);
+
+    // Now, we fill in the afterward block, to receive the result value of the then or else block,
+    // whichever we just came from.
     auto phi = LLVMBuildPhi(builder, translateType(globalState, iff->commonSupertype), "");
     LLVMValueRef incomingValueRefs[2] = { thenExpr, elseExpr };
     LLVMBasicBlockRef incomingBlocks[2] = { thenBlockL, elseBlockL };
     LLVMAddIncoming(phi, incomingValueRefs, incomingBlocks, 2);
 
+    // We're done with the "current" block, and also the "then" and "else" blocks, nobody else will
+    // write to them now.
+    // We re-pointed the `builder` to point at the "afterward" block, and subsequent instructions
+    // after the if will keep adding to that.
+
     return phi;
+  } else if (auto whiile = dynamic_cast<While*>(expr)) {
+    // While only has a body expr, no separate condition.
+    // If the body itself returns true, then we'll run the body again.
+
+    // We already are in the "current" block (which is what `builder` is pointing at currently),
+    // but we're about to make two more: "body" and "afterward".
+    //              .-----> body -----.
+    //  current ---'         ↑         :---> afterward
+    //                       `--------'
+    // Right now, the `builder` is pointed at the "current" block.
+    // After we're done, we'll change it to point at the "afterward" block, so that
+    // subsequent instructions (after the While) can keep using the same builder, but they'll
+    // be adding to the "afterward" block we're making here.
+
+    int bodyBlockNumber = functionState->nextBlockNumber++;
+    auto bodyBlockName = std::string("block") + std::to_string(bodyBlockNumber);
+    LLVMBasicBlockRef bodyBlockL = LLVMAppendBasicBlock(functionState->containingFunc, bodyBlockName.c_str());
+    LLVMBuilderRef bodyBlockBuilder = LLVMCreateBuilder();
+    LLVMPositionBuilderAtEnd(bodyBlockBuilder, bodyBlockL);
+
+    int afterwardBlockNumber = functionState->nextBlockNumber++;
+    auto afterwardBlockName = std::string("block") + std::to_string(afterwardBlockNumber);
+    LLVMBasicBlockRef afterwardBlockL = LLVMAppendBasicBlock(functionState->containingFunc, afterwardBlockName.c_str());
+
+    // First, we make the "current" block jump into the "body" block.
+    LLVMBuildBr(builder, bodyBlockL);
+
+    // Now, we fill in the body block.
+    auto bodyExpr = translateExpression(globalState, functionState, bodyBlockBuilder, whiile->bodyExpr);
+    // And add a conditional branch to go to either itself, or the afterward block.
+    LLVMBuildCondBr(bodyBlockBuilder, bodyExpr, bodyBlockL, afterwardBlockL);
+
+    // Like explained above, here we're re-pointing the `builder` to point at the afterward block,
+    // so that subsequent instructions (after the While) can keep using the same builder, but they'll
+    // be adding to the "afterward" block we're making here.
+    LLVMPositionBuilderAtEnd(builder, afterwardBlockL);
+
+    // Nobody should use a result of a while, so we'll just return a Never.
+    return makeNever();
+  } else if (auto memberLoad = dynamic_cast<MemberLoad*>(expr)) {
+    auto structExpr = translateExpression(globalState, functionState, builder, memberLoad->structExpr);
+    auto ptrToMemberInStruct = LLVMBuildStructGEP(builder, structExpr, memberLoad->memberIndex, memberLoad->memberName.c_str());
+    return LLVMBuildLoad(builder, ptrToMemberInStruct, "");
   } else {
     std::string name = typeid(*expr).name();
     std::cout << name << std::endl;
@@ -260,7 +364,6 @@ LLVMValueRef declareFunction(
 
 void translateFunction(
     GlobalState* globalState,
-    LLVMModuleRef mod,
     Function* functionM) {
 
   auto functionIter = globalState->functions.find(functionM->prototype->name->name);

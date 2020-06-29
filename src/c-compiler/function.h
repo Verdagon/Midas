@@ -23,7 +23,6 @@ public:
 
 void translateFunction(
     GlobalState* globalState,
-    LLVMModuleRef mod,
     Function* functionM);
 
 LLVMValueRef declareFunction(

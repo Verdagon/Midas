@@ -20,6 +20,7 @@
 #include "instructions.h"
 
 #include "function.h"
+#include "struct.h"
 #include "readjson.h"
 #include "vale.h"
 
@@ -81,6 +82,23 @@ void compileValeCode(LLVMModuleRef mod, const char* filename) {
 
   GlobalState globalState;
 
+  for (auto p : program->structs) {
+    auto name = p.first;
+    auto structL = p.second;
+    declareStruct(&globalState, structL);
+  }
+
+  // eventually, would declare interfaces here
+
+
+  for (auto p : program->structs) {
+    auto name = p.first;
+    auto structL = p.second;
+    translateStruct(&globalState, structL);
+  }
+
+
+
   LLVMValueRef mainL = nullptr;
   for (auto p : program->functions) {
     auto name = p.first;
@@ -97,7 +115,7 @@ void compileValeCode(LLVMModuleRef mod, const char* filename) {
   for (auto p : program->functions) {
     auto name = p.first;
     auto function = p.second;
-    translateFunction(&globalState, mod, function);
+    translateFunction(&globalState, function);
   }
 
   auto paramTypesL = std::vector<LLVMTypeRef>{

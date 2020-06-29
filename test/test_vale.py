@@ -105,6 +105,9 @@ class ValeTest(unittest.TestCase):
     def test_while(self) -> None:
         self.compile_and_execute_and_expect_return_code("while.vale", 42)
 
+    def test_immstruct(self) -> None:
+        self.compile_and_execute_and_expect_return_code("immstruct.vale", 42)
+
 
 if __name__ == '__main__':
     unittest.main()
