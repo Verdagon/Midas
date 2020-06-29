@@ -1,24 +1,8 @@
 #include <iostream>
 
+#include "translatetype.h"
+
 #include "function.h"
-
-LLVMTypeRef translateType(Reference* referenceM) {
-  if (referenceM->ownership == Ownership::SHARE &&
-      dynamic_cast<Int*>(referenceM->referend) != nullptr) {
-    return LLVMInt64Type();
-  } else {
-    assert(false);
-    return nullptr;
-  }
-}
-
-std::vector<LLVMTypeRef> translateTypes(std::vector<Reference*> referencesM) {
-  std::vector<LLVMTypeRef> result;
-  for (auto referenceM : referencesM) {
-    result.push_back(translateType(referenceM));
-  }
-  return result;
-}
 
 LLVMValueRef translateExpression(
     GlobalState* globalState,
@@ -36,6 +20,18 @@ LLVMValueRef translateExternCall(
     LLVMBuilderRef builder,
     ExternCall* expr);
 
+
+// A "Never" is something that should never be read.
+// This is useful in a lot of situations, for example:
+// - The return type of Panic()
+// - The result of the Discard node
+LLVMValueRef makeNever() {
+  LLVMValueRef empty[1] = {};
+  // We arbitrarily use a zero-len array of i57 here because it's zero sized and
+  // very unlikely to be used anywhere else.
+  // We could use an empty struct instead, but this'll do.
+  return LLVMConstArray(LLVMIntType(NEVER_INT_BITS), empty, 0);
+}
 
 LLVMValueRef translateExternCall(
     GlobalState* globalState,
@@ -56,8 +52,7 @@ LLVMValueRef translateExternCall(
     // VivemExterns.addFloatFloat
     assert(false);
   } else if (name == "F(\"panic\")") {
-    // VivemExterns.panic
-    assert(false);
+    return makeNever();
   } else if (name == "F(\"__multiplyIntInt\",[],[R(*,i),R(*,i)])") {
     assert(call->argExprs.size() == 2);
     return LLVMBuildMul(
@@ -77,8 +72,15 @@ LLVMValueRef translateExternCall(
     // VivemExterns.getch
     assert(false);
   } else if (name == "F(\"__lessThanInt\",[],[R(*,i),R(*,i)])") {
-    // VivemExterns.lessThanInt
-    assert(false);
+    assert(call->argExprs.size() == 2);
+    return LLVMBuildICmp(
+        builder,
+        LLVMIntSLT,
+        translateExpression(
+            globalState, functionState, builder, call->argExprs[0]),
+        translateExpression(
+            globalState, functionState, builder, call->argExprs[1]),
+        "");
   } else if (name == "F(\"__greaterThanOrEqInt\",[],[R(*,i),R(*,i)])") {
     // VivemExterns.greaterThanOrEqInt
     assert(false);
@@ -137,18 +139,6 @@ LLVMValueRef translateCall(
       builder, funcL, argExprsL.data(), argExprsL.size(), "");
 }
 
-// A "Never" is something that should never be read.
-// This is useful in a lot of situations, for example:
-// - The return type of Panic()
-// - The result of the Discard node
-LLVMValueRef makeNever() {
-  LLVMValueRef empty[1] = {};
-  // We arbitrarily use a zero-len array of i57 here because it's zero sized and
-  // very unlikely to be used anywhere else.
-  // We could use an empty struct instead, but this'll do.
-  return LLVMConstArray(LLVMIntType(57), empty, 0);
-}
-
 LLVMValueRef translateExpression(
     GlobalState* globalState,
     FunctionState* functionState,
@@ -174,10 +164,20 @@ LLVMValueRef translateExpression(
     auto inner =
         translateExpression(
             globalState, functionState, builder, discard->sourceExpr);
-    if (dynamic_cast<Int*>(discard->sourceResultType->referend) ||
-        dynamic_cast<Bool*>(discard->sourceResultType->referend) ||
-        dynamic_cast<Float*>(discard->sourceResultType->referend)) {
+    auto sourceRnd = discard->sourceResultType->referend;
+    if (dynamic_cast<Int*>(sourceRnd) ||
+        dynamic_cast<Bool*>(sourceRnd) ||
+        dynamic_cast<Float*>(sourceRnd)) {
       // Do nothing for these, they're always inlined and copied.
+    } else if (auto structRnd = dynamic_cast<StructReferend*>(sourceRnd)) {
+      auto structM = globalState->program->getStruct(structRnd->fullName);
+
+      bool inliine = true;//discard->sourceResultType->location == INLINE; TODO
+      if (inliine) {
+        // Do nothing, we can just let inline structs disappear
+      } else {
+        assert(false); // TODO implement
+      }
     } else {
       std::cerr << "Unimplemented type in Discard: "
           << typeid(*discard->sourceResultType->referend).name() << std::endl;
@@ -196,7 +196,7 @@ LLVMValueRef translateExpression(
     auto localAddr =
         LLVMBuildAlloca(
             builder,
-            translateType(stackify->local->type),
+            translateType(globalState, stackify->local->type),
             stackify->local->id->maybeName.c_str());
     functionState->localAddrByLocalId.emplace(
         stackify->local->id->number, localAddr);
@@ -229,15 +229,84 @@ LLVMValueRef translateExpression(
     return translateExternCall(globalState, functionState, builder, externCall);
   } else if (auto argument = dynamic_cast<Argument*>(expr)) {
     return LLVMGetParam(functionState->containingFunc, argument->argumentIndex);
+  } else if (auto newStruct = dynamic_cast<NewStruct*>(expr)) {
+    auto structReferend =
+        dynamic_cast<StructReferend*>(newStruct->resultType->referend);
+    assert(structReferend);
+    auto structL = globalState->getStruct(structReferend->fullName);
+
+    auto structName = structReferend->fullName;
+    auto structMIter = globalState->program->structs.find(structName->name);
+    assert(structMIter != globalState->program->structs.end());
+    auto structM = structMIter->second;
+
+    auto memberExprs =
+        translateExpressions(
+            globalState, functionState, builder, newStruct->sourceExprs);
+
+    switch (newStruct->resultType->ownership) {
+      case Ownership::OWN:
+        assert(false); // TODO: make a new mutable struct, with a call to malloc
+        break;
+      case Ownership::SHARE: {
+        bool inliine = true;//newStruct->resultType->location == INLINE; TODO
+
+        if (inliine) {
+          // We always start with an undef, and then fill in its fields one at a
+          // time.
+          LLVMValueRef structValueBeingInitialized = LLVMGetUndef(structL);
+          for (int i = 0; i < memberExprs.size(); i++) {
+            auto memberName = structM->members[i]->name;
+            // Every time we fill in a field, it actually makes a new entire
+            // struct value, and gives us a LLVMValueRef for the new value.
+            // So, `structValueBeingInitialized` contains the latest one.
+            structValueBeingInitialized =
+                LLVMBuildInsertValue(
+                    builder,
+                    structValueBeingInitialized,
+                    memberExprs[i],
+                    i,
+                    memberName.c_str());
+          }
+          return structValueBeingInitialized;
+        } else {
+          // TODO: implement non-inlined immutable structs
+          assert(false);
+          return nullptr;
+        }
+      }
+      case Ownership::BORROW:
+        // Wouldn't make sense to make a new struct and expect a borrow
+        // reference out of it.
+      // case Ownership::WEAK:
+      default:
+        assert(false);
+        return nullptr;
+    }
   } else if (auto block = dynamic_cast<Block*>(expr)) {
     auto exprs =
         translateExpressions(globalState, functionState, builder, block->exprs);
     assert(!exprs.empty());
     return exprs.back();
   } else if (auto iff = dynamic_cast<If*>(expr)) {
+    // First, we compile the condition expression, into wherever we're currently
+    // building. It's not really part of this mess, but we do use the resulting
+    // bit of it in the indirect-branch instruction.
     auto conditionExpr =
         translateExpression(
             globalState, functionState, builder, iff->conditionExpr);
+
+    // We already are in the "current" block (which is what `builder` is
+    // pointing at currently), but we're about to make three more: "then",
+    // "else", and "afterward".
+    //              .-----> then -----.
+    //  current ---:                   :---> afterward
+    //              '-----> else -----'
+    // Right now, the `builder` is pointed at the "current" block.
+    // After we're done, we'll change it to point at the "afterward" block, so
+    // that subsequent instructions (after the If) can keep using the same
+    // builder, but they'll be adding to the "afterward" block we're making
+    // here.
 
     LLVMBasicBlockRef thenBlockL =
         LLVMAppendBasicBlock(
@@ -245,9 +314,6 @@ LLVMValueRef translateExpression(
             functionState->nextBlockName().c_str());
     LLVMBuilderRef thenBlockBuilder = LLVMCreateBuilder();
     LLVMPositionBuilderAtEnd(thenBlockBuilder, thenBlockL);
-    auto thenExpr =
-        translateExpression(
-            globalState, functionState, thenBlockBuilder, iff->thenExpr);
 
     LLVMBasicBlockRef elseBlockL =
         LLVMAppendBasicBlock(
@@ -255,27 +321,118 @@ LLVMValueRef translateExpression(
             functionState->nextBlockName().c_str());
     LLVMBuilderRef elseBlockBuilder = LLVMCreateBuilder();
     LLVMPositionBuilderAtEnd(elseBlockBuilder, elseBlockL);
-    auto elseExpr =
-        translateExpression(
-            globalState, functionState, elseBlockBuilder, iff->elseExpr);
-
-    LLVMBuildCondBr(builder, conditionExpr, thenBlockL, elseBlockL);
 
     LLVMBasicBlockRef afterwardBlockL =
         LLVMAppendBasicBlock(
             functionState->containingFunc,
             functionState->nextBlockName().c_str());
+
+    LLVMBuildCondBr(builder, conditionExpr, thenBlockL, elseBlockL);
+
+    // Now, we fill in the "then" block.
+    auto thenExpr =
+        translateExpression(
+            globalState, functionState, thenBlockBuilder, iff->thenExpr);
+    // Instruction to jump to the afterward block.
     LLVMBuildBr(thenBlockBuilder, afterwardBlockL);
+
+    // Now, we fill in the "else" block.
+    auto elseExpr =
+        translateExpression(
+            globalState, functionState, elseBlockBuilder, iff->elseExpr);
+    // Instruction to jump to the afterward block.
     LLVMBuildBr(elseBlockBuilder, afterwardBlockL);
 
+    // Like explained above, here we're re-pointing the `builder` to point at
+    // the afterward block, so that subsequent instructions (after the If) can
+    // keep using the same builder, but they'll be adding to the "afterward"
+    // block we're making here.
     LLVMPositionBuilderAtEnd(builder, afterwardBlockL);
+
+    // Now, we fill in the afterward block, to receive the result value of the
+    // then or else block, whichever we just came from.
     auto phi =
-        LLVMBuildPhi(builder, translateType(iff->commonSupertype), "");
+        LLVMBuildPhi(
+            builder, translateType(globalState, iff->commonSupertype), "");
     LLVMValueRef incomingValueRefs[2] = { thenExpr, elseExpr };
     LLVMBasicBlockRef incomingBlocks[2] = { thenBlockL, elseBlockL };
     LLVMAddIncoming(phi, incomingValueRefs, incomingBlocks, 2);
 
+    // We're done with the "current" block, and also the "then" and "else"
+    // blocks, nobody else will write to them now.
+    // We re-pointed the `builder` to point at the "afterward" block, and
+    // subsequent instructions after the if will keep adding to that.
+
     return phi;
+  } else if (auto whiile = dynamic_cast<While*>(expr)) {
+    // While only has a body expr, no separate condition.
+    // If the body itself returns true, then we'll run the body again.
+
+    // We already are in the "current" block (which is what `builder` is
+    // pointing at currently), but we're about to make two more: "body" and
+    // "afterward".
+    //              .-----> body -----.
+    //  current ---'         ↑         :---> afterward
+    //                       `--------'
+    // Right now, the `builder` is pointed at the "current" block.
+    // After we're done, we'll change it to point at the "afterward" block, so
+    // that subsequent instructions (after the While) can keep using the same
+    // builder, but they'll be adding to the "afterward" block we're making
+    // here.
+
+    LLVMBasicBlockRef bodyBlockL =
+        LLVMAppendBasicBlock(
+            functionState->containingFunc,
+            functionState->nextBlockName().c_str());
+    LLVMBuilderRef bodyBlockBuilder = LLVMCreateBuilder();
+    LLVMPositionBuilderAtEnd(bodyBlockBuilder, bodyBlockL);
+
+    LLVMBasicBlockRef afterwardBlockL =
+        LLVMAppendBasicBlock(
+            functionState->containingFunc,
+            functionState->nextBlockName().c_str());
+
+    // First, we make the "current" block jump into the "body" block.
+    LLVMBuildBr(builder, bodyBlockL);
+
+    // Now, we fill in the body block.
+    auto bodyExpr =
+        translateExpression(
+            globalState, functionState, bodyBlockBuilder, whiile->bodyExpr);
+    // Add a conditional branch to go to either itself, or the afterward block.
+    LLVMBuildCondBr(bodyBlockBuilder, bodyExpr, bodyBlockL, afterwardBlockL);
+
+    // Like explained above, here we're re-pointing the `builder` to point at
+    // the afterward block, so that subsequent instructions (after the While)
+    // can keep using the same builder, but they'll be adding to the "afterward"
+    // block we're making here.
+    LLVMPositionBuilderAtEnd(builder, afterwardBlockL);
+
+    // Nobody should use a result of a while, so we'll just return a Never.
+    return makeNever();
+  } else if (auto memberLoad = dynamic_cast<MemberLoad*>(expr)) {
+    auto structExpr =
+        translateExpression(
+            globalState, functionState, builder, memberLoad->structExpr);
+
+    auto structName = memberLoad->structId->fullName->name;
+    auto structMIter = globalState->program->structs.find(structName);
+    assert(structMIter != globalState->program->structs.end());
+    auto structM = structMIter->second;
+    auto memberName = structM->members[memberLoad->memberIndex]->name;
+
+    bool inliine = true;//memberLoad->structType->location == INLINE; TODO
+    if (inliine) {
+      return LLVMBuildExtractValue(
+          builder,
+          structExpr,
+          memberLoad->memberIndex,
+          memberName.c_str());
+    } else {
+      // TODO: make MemberLoad work for non-inlined structs.
+      assert(false);
+      return nullptr;
+    }
   } else {
     std::string name = typeid(*expr).name();
     std::cout << name << std::endl;
@@ -289,8 +446,9 @@ LLVMValueRef declareFunction(
     LLVMModuleRef mod,
     Function* functionM) {
 
-  auto paramTypesL = translateTypes(functionM->prototype->params);
-  auto returnTypeL = translateType(functionM->prototype->returnType);
+  auto paramTypesL = translateTypes(globalState, functionM->prototype->params);
+  auto returnTypeL =
+      translateType(globalState, functionM->prototype->returnType);
   auto nameL = functionM->prototype->name->name;
 
   LLVMTypeRef functionTypeL =
@@ -305,7 +463,6 @@ LLVMValueRef declareFunction(
 
 void translateFunction(
     GlobalState* globalState,
-    LLVMModuleRef mod,
     Function* functionM) {
 
   auto functionL = globalState->getFunction(functionM);

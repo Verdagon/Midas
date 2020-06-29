@@ -1,5 +1,5 @@
-#ifndef TRANSLATE_H_
-#define TRANSLATE_H_
+#ifndef FUNCTION_H_
+#define FUNCTION_H_
 
 #include <llvm-c/Core.h>
 
@@ -7,17 +7,7 @@
 
 #include "ast.h"
 #include "instructions.h"
-
-class GlobalState {
-public:
-  std::unordered_map<std::string, LLVMValueRef> functions;
-
-  LLVMValueRef getFunction(Function* functionM) {
-    auto functionIter = functions.find(functionM->prototype->name->name);
-    assert(functionIter != functions.end());
-    return functionIter->second;
-  }
-};
+#include "globalstate.h"
 
 class FunctionState {
 public:
@@ -41,7 +31,6 @@ public:
 
 void translateFunction(
     GlobalState* globalState,
-    LLVMModuleRef mod,
     Function* functionM);
 
 LLVMValueRef declareFunction(

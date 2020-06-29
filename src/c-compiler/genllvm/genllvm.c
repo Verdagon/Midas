@@ -143,22 +143,22 @@ void genMod(GenState *gen, ModuleNode *mod) {
     // Generate IR to LLVM IR
     genlPackage(gen, mod);
 
+    // Serialize the LLVM IR, if requested
+    if (gen->opt->print_llvmir && LLVMPrintModuleToFile(gen->module, fileMakePath(gen->opt->output, gen->opt->srcname, "pre.ll"), &err) != 0) {
+      errorMsg(ErrorGenErr, "Could not emit pre-ir file: %s", err);
+      LLVMDisposeMessage(err);
+    }
+
     // Verify generated IR
     if (gen->opt->verify) {
         timerBegin(VerifyTimer);
         char *error = NULL;
-        LLVMVerifyModule(gen->module, LLVMReturnStatusAction, &error);
+        LLVMVerifyModule(gen->module, LLVMAbortProcessAction, &error);
         if (error) {
             if (*error)
                 errorMsg(ErrorGenErr, "Module verification failed:\n%s", error);
             LLVMDisposeMessage(error);
         }
-    }
-
-    // Serialize the LLVM IR, if requested
-    if (gen->opt->print_llvmir && LLVMPrintModuleToFile(gen->module, fileMakePath(gen->opt->output, gen->opt->srcname, "preir"), &err) != 0) {
-        errorMsg(ErrorGenErr, "Could not emit pre-ir file: %s", err);
-        LLVMDisposeMessage(err);
     }
 
     // Optimize the generated LLVM IR
@@ -174,11 +174,11 @@ void genMod(GenState *gen, ModuleNode *mod) {
     LLVMRunPassManager(passmgr, gen->module);
     LLVMDisposePassManager(passmgr);
 
-    // Serialize the LLVM IR, if requested
-    if (gen->opt->print_llvmir && LLVMPrintModuleToFile(gen->module, fileMakePath(gen->opt->output, gen->opt->srcname, "ir"), &err) != 0) {
-        errorMsg(ErrorGenErr, "Could not emit ir file: %s", err);
-        LLVMDisposeMessage(err);
-    }
+  // Serialize the LLVM IR, if requested
+  if (gen->opt->print_llvmir && LLVMPrintModuleToFile(gen->module, fileMakePath(gen->opt->output, gen->opt->srcname, "ll"), &err) != 0) {
+    errorMsg(ErrorGenErr, "Could not emit ir file: %s", err);
+    LLVMDisposeMessage(err);
+  }
 
     // Transform IR to target's ASM and OBJ
     timerBegin(CodeGenTimer);
@@ -187,7 +187,8 @@ void genMod(GenState *gen, ModuleNode *mod) {
             gen->opt->print_asm? fileMakePath(gen->opt->output, gen->opt->srcname, gen->opt->wasm? "wat" : asmext) : NULL,
             gen->module, gen->opt->triple, gen->machine);
 
-    LLVMDisposeModule(gen->module);
+
+  LLVMDisposeModule(gen->module);
     // LLVMContextDispose(gen.context);  // Only need if we created a new context
 }
 

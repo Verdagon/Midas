@@ -199,11 +199,28 @@ public:
 class MemberLoad : public Expression {
 public:
   Expression* structExpr;
+  StructReferend* structId;
   int memberIndex;
   Ownership targetOwnership;
   Reference* expectedMemberType;
   Reference* expectedResultType;
   std::string memberName;
+
+  MemberLoad(
+      Expression* structExpr_,
+      StructReferend* structId_,
+      int memberIndex_,
+      Ownership targetOwnership_,
+      Reference* expectedMemberType_,
+      Reference* expectedResultType_,
+      std::string memberName_) :
+    structExpr(structExpr_),
+    structId(structId_),
+    memberIndex(memberIndex_),
+    targetOwnership(targetOwnership_),
+    expectedMemberType(expectedMemberType_),
+    expectedResultType(expectedResultType_),
+    memberName(memberName_) {}
 };
 
 
@@ -349,7 +366,13 @@ public:
 class NewStruct : public Expression {
 public:
   std::vector<Expression*> sourceExprs;
-  Reference* structRefType;
+  Reference* resultType;
+
+  NewStruct(
+      std::vector<Expression*> sourceExprs_,
+      Reference* resultType_) :
+      sourceExprs(sourceExprs_),
+      resultType(resultType_) {}
 };
 
 class ArrayLength : public Expression {

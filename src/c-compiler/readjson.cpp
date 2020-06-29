@@ -35,6 +35,18 @@ std::unordered_map<K, V> readArrayIntoMap(const json& j, const F& f) {
   return map;
 }
 
+Name* readName(const json& name) {
+  assert(name.is_string());
+  return new Name(
+      name.get<std::string>());
+}
+
+StructReferend* readStructReferend(const json& referend) {
+  assert(referend[""] == "StructId");
+  return new StructReferend(
+      readName(referend["name"]));
+}
+
 Referend* readReferend(const json& referend) {
   assert(referend.is_object());
   if (referend[""] == "Int") {
@@ -45,8 +57,34 @@ Referend* readReferend(const json& referend) {
     return new Str();
   } else if (referend[""] == "Void") {
     return new Void();
+  } else if (referend[""] == "StructId") {
+    return readStructReferend(referend);
+  } else if (referend[""] == "Never") {
+    return new Never();
   } else {
     std::cerr << "Unrecognized referend: " << referend[""] << std::endl;
+    assert(false);
+  }
+}
+
+Mutability readMutability(const json& mutability) {
+  assert(mutability.is_object());
+  if (mutability[""].get<std::string>() == "Mutable") {
+    return Mutability::MUTABLE;
+  } else if (mutability[""].get<std::string>() == "Immutable") {
+    return Mutability::IMMUTABLE;
+  } else {
+    assert(false);
+  }
+}
+
+Variability readVariability(const json& variability) {
+  assert(variability.is_object());
+  if (variability[""].get<std::string>() == "Varying") {
+    return Variability::VARYING;
+  } else if (variability[""].get<std::string>() == "Final") {
+    return Variability::FINAL;
+  } else {
     assert(false);
   }
 }
@@ -71,13 +109,6 @@ Reference* readReference(const json& reference) {
   return new Reference(
       readOwnership(reference["ownership"]),
       readReferend(reference["referend"]));
-}
-
-Name* readName(const json& name) {
-  assert(name.is_string());
-//  assert(name[""] == "Name");
-  return new Name(
-      name.get<std::string>());
 }
 
 Prototype* readPrototype(const json& prototype) {
@@ -163,7 +194,19 @@ Expression* readExpression(const json& expression) {
   } else if (type == "While") {
     return new While(
         readExpression(expression["bodyBlock"]));
-
+  } else if (type == "NewStruct") {
+    return new NewStruct(
+        readArray(expression["sourceExprs"], readExpression),
+        readReference(expression["resultType"]));
+  } else if (type == "MemberLoad") {
+    return new MemberLoad(
+        readExpression(expression["structExpr"]),
+        readStructReferend(expression["structId"]),
+        expression["memberIndex"],
+        readOwnership(expression["targetOwnership"]),
+        readReference(expression["expectedMemberType"]),
+        readReference(expression["expectedResultType"]),
+        expression["memberName"]);
   } else {
     std::cerr << "Unexpected instruction: " << type << std::endl;
     assert(false);
@@ -174,6 +217,25 @@ Block* readBlock(const json& block) {
   assert(block.is_object());
   return new Block(
       readArray(block["exprs"], readExpression));
+}
+
+StructMember* readStructMember(const json& struuct) {
+  assert(struuct.is_object());
+  assert(struuct[""] == "StructMember");
+  return new StructMember(
+      struuct["name"],
+      readVariability(struuct["variability"]),
+      readReference(struuct["type"]));
+}
+
+StructDefinition* readStruct(const json& struuct) {
+  assert(struuct.is_object());
+  assert(struuct[""] == "Struct");
+  return new StructDefinition(
+      readName(struuct["name"]),
+      readMutability(struuct["mutability"]),
+      {},
+      readArray(struuct["members"], readStructMember));
 }
 
 Function* readFunction(const json& function) {
@@ -189,7 +251,12 @@ Program* readProgram(const json& program) {
   assert(program[""] == "Program");
   return new Program(
       {},//readArray<readInterface>(program["interfaces"]),
-      {},//readArray<readStruct>(program["structs"]),
+      readArrayIntoMap<std::string, StructDefinition*>(
+          program["structs"],
+          [](json j){
+            auto s = readStruct(j);
+            return std::make_pair(s->name->name, s);
+          }),
       nullptr,//readStructName(program["emptyPackStructRef"]),
       {},//readArray<readExtern>(program["externs"]),
       readArrayIntoMap<std::string, Function*>(

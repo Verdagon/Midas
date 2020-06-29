@@ -60,7 +60,9 @@ llvm_map_components_to_libnames(llvm_libs ${LLVM_LINK_COMPONENTS})
 add_executable(valec
 		src/c-compiler/vale.cpp
 		src/c-compiler/function.cpp
+		src/c-compiler/struct.cpp
 		src/c-compiler/readjson.cpp
+		src/c-compiler/translatetype.cpp
 		src/c-compiler/conec.c
 		src/c-compiler/coneopts.c
 

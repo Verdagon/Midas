@@ -38,7 +38,8 @@ class ValeTest(unittest.TestCase):
               o_files_dir: str) -> subprocess.CompletedProcess:
         assert self.GENPATH
         return procrun(
-            [f"../{self.GENPATH}/valec", "--output-dir", o_files_dir, vir_file])
+            [f"../{self.GENPATH}/valec", "--verify", "--llvmir", "--output-dir",
+             o_files_dir, vir_file])
 
     def clang(self, o_files: List[str],
               exe_file: str) -> subprocess.CompletedProcess:
@@ -102,8 +103,11 @@ class ValeTest(unittest.TestCase):
     def test_mutlocal(self) -> None:
         self.compile_and_execute_and_expect_return_code("mutlocal.vale", 42)
 
-    # def test_while(self) -> None:
-    #     self.compile_and_execute_and_expect_return_code("while.vale", 42)
+    def test_while(self) -> None:
+        self.compile_and_execute_and_expect_return_code("while.vale", 42)
+
+    def test_immstruct(self) -> None:
+        self.compile_and_execute_and_expect_return_code("immstruct.vale", 5)
 
 
 if __name__ == '__main__':

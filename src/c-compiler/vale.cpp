@@ -20,6 +20,7 @@
 #include "instructions.h"
 
 #include "function.h"
+#include "struct.h"
 #include "readjson.h"
 #include "vale.h"
 
@@ -35,6 +36,23 @@ void compileValeCode(LLVMModuleRef mod, const char* filename) {
   auto program = readProgram(programJ);
 
   GlobalState globalState;
+  globalState.program = program;
+
+  for (auto p : program->structs) {
+    auto name = p.first;
+    auto structL = p.second;
+    declareStruct(&globalState, structL);
+  }
+
+  // eventually, would declare interfaces here
+
+  for (auto p : program->structs) {
+    auto name = p.first;
+    auto structL = p.second;
+    translateStruct(&globalState, structL);
+  }
+
+
 
   LLVMValueRef mainL = nullptr;
   for (auto p : program->functions) {
@@ -52,7 +70,7 @@ void compileValeCode(LLVMModuleRef mod, const char* filename) {
   for (auto p : program->functions) {
     auto name = p.first;
     auto function = p.second;
-    translateFunction(&globalState, mod, function);
+    translateFunction(&globalState, function);
   }
 
   auto paramTypesL = std::vector<LLVMTypeRef>{
@@ -76,11 +94,4 @@ void compileValeCode(LLVMModuleRef mod, const char* filename) {
       builder,
 //      LLVMConstInt(LLVMInt64Type(), 42, false));
       LLVMBuildCall(builder, mainL, emptyValues, 0, "valeMainCall"));
-
-  std::cout << "Printing stuff!" << std::endl;
-  std::cout << LLVMPrintModuleToString(mod) << std::endl;
-
-  char *error = NULL;
-  LLVMVerifyModule(mod, LLVMAbortProcessAction, &error);
-  LLVMDisposeMessage(error);
 }

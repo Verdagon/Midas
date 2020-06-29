@@ -19,7 +19,7 @@ class Void;
 class Float;
 class Never;
 class InterfaceRef;
-class StructRef;
+class StructReferend;
 class RawArrayT;
 class KnownSizeArrayT;
 class UnknownSizeArrayT;
@@ -98,6 +98,9 @@ public:
 class StructReferend : public Referend {
 public:
     Name* fullName;
+
+    StructReferend(Name* fullName_) :
+        fullName(fullName_) {}
 };
 
 class RawArrayT {
