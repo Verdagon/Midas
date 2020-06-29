@@ -65,8 +65,10 @@ LLVMValueRef translateExternCall(
     return LLVMBuildICmp(
         builder,
         LLVMIntSLT,
-        translateExpression(globalState, functionState, builder, call->argExprs[0]),
-        translateExpression(globalState, functionState, builder, call->argExprs[1]),
+        translateExpression(
+            globalState, functionState, builder, call->argExprs[0]),
+        translateExpression(
+            globalState, functionState, builder, call->argExprs[1]),
         "");
   } else if (name == "F(\"__greaterThanOrEqInt\",[],[R(*,i),R(*,i)])") {
     // VivemExterns.greaterThanOrEqInt
